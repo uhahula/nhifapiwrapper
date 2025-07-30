@@ -5,6 +5,7 @@ import com.oau.nhif.client.NhifApiClientFactory;
 import com.oau.nhif.client.model.*;
 import com.oau.nhif.exception.NhifApiException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -44,7 +45,7 @@ public class NhifApiExample {
                 .get(); // Blocking call for demo purposes
             
             // Example 2: Verify card
-          /*  System.out.println("\nVerifying card: " + cardNumber);
+             System.out.println("\nVerifying card: " + cardNumber);
             client.verifyCard(cardNumber)
                 .thenAccept(verification -> {
                     System.out.println("Card is " + (verification.isValid() ? "valid" : "invalid"));
@@ -82,8 +83,32 @@ public class NhifApiExample {
                 })
                 .get();
 
-           */
-                
+            // Example 6: Authorize Card
+            System.out.println("\nAuthorizing card: " + cardNumber);
+            AuthorizationRequest authRequest = new AuthorizationRequest();
+            authRequest.setCardNumber(cardNumber);
+            authRequest.setDiagnosis("Test Diagnosis");
+            authRequest.setFacilityCode(clientId);
+            authRequest.setVisitDate("2023-05-01");
+            authRequest.setReferralNumber("OP");
+            authRequest.setRemarks("Test Remarks");
+
+            List<AuthorizationRequest.AuthorizationItem> authItems = new ArrayList<>();
+            AuthorizationRequest.AuthorizationItem item1 = new AuthorizationRequest.AuthorizationItem();
+            item1.setItemCode("ItemCode1");
+            item1.setUnitPrice(1000);
+            item1.setQuantity(1);
+            authItems.add(item1);
+
+            authRequest.setItems(authItems);
+
+            client.authorizeCard(authRequest)
+                .thenAccept(authorization -> {
+                    System.out.println("Authorization ID: " + authorization.getAuthorizationNumber());
+                    System.out.println("Authorization result: " + authorization.getMessage());
+                })
+                .get();
+
         } catch (NhifApiException | InterruptedException | ExecutionException e) {
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();

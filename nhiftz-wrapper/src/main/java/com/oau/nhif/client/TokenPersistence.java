@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 /**
@@ -40,7 +41,8 @@ class TokenPersistence {
     public void saveToken(TokenInfo tokenInfo) {
         try {
             String json = objectMapper.writeValueAsString(tokenInfo);
-            Files.writeString(tokenFilePath, json);
+            // Java 1.8 compatible way to write string to file
+            Files.write(tokenFilePath, json.getBytes(StandardCharsets.UTF_8));
             logger.debug("Token saved to {}", tokenFilePath);
         } catch (IOException e) {
             logger.warn("Failed to save token to file: {}", e.getMessage());
@@ -58,8 +60,12 @@ class TokenPersistence {
         }
 
         try {
-            String json = Files.readString(tokenFilePath);
-            TokenInfo tokenInfo = objectMapper.readValue(json, new TypeReference<>() {});
+            // Java 1.8 compatible way to read string from file
+            byte[] bytes = Files.readAllBytes(tokenFilePath);
+            String json = new String(bytes, StandardCharsets.UTF_8);
+            
+            // Java 1.8 compatible TypeReference syntax
+            TokenInfo tokenInfo = objectMapper.readValue(json, new TypeReference<TokenInfo>() {});
             
             // Verify the token is not expired
             if (tokenInfo.isExpired()) {

@@ -15,6 +15,9 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<CardDetails> getCardDetails(String cardNumber) throws NhifApiException;
     CompletableFuture<AuthorizationDetails> getAuthorizationDetails(String authorizationNumber) throws NhifApiException;
     CompletableFuture<AuthorizationResponse> authorizeCard(AuthorizationRequest request) throws NhifApiException;
+    CompletableFuture<CardAuthorizationResponse> authorizeCardWithBiometric(CardAuthorizationRequest request) throws NhifApiException;
+    CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(String cardNumber, int visitTypeID) throws NhifApiException;
+    CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(SimpleCardAuthorizationRequest request) throws NhifApiException;
     CompletableFuture<CardVerification> verifyCard(String cardNumber) throws NhifApiException;
     CompletableFuture<PatientDetails> getPatientDetails(String cardNumber) throws NhifApiException;
 
@@ -24,7 +27,7 @@ public interface NhifApiClient extends AutoCloseable {
 
     // Claim APIs
     CompletableFuture<TestResponse> testClaim() throws NhifApiException;
-    CompletableFuture<ClaimSubmissionResponse> submitFolio(FolioSubmission request) throws NhifApiException;
+    CompletableFuture<ClaimSubmissionResponse> submitFolio(FolioSubmissionRequest request) throws NhifApiException;
     CompletableFuture<SubmittedClaim> getSubmittedClaim(String claimId) throws NhifApiException;
     CompletableFuture<Receipt> getReceipt(String claimId) throws NhifApiException;
     CompletableFuture<ConfirmationResponse> sendConfirmationCode(String phoneNumber) throws NhifApiException;
@@ -34,11 +37,33 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<List<PointOfCare>> getPointsOfCare() throws NhifApiException;
     CompletableFuture<List<VisitType>> getVisitTypes() throws NhifApiException;
     CompletableFuture<List<Facility>> getFacilities() throws NhifApiException;
+    CompletableFuture<List<Disease>> getDiseases() throws NhifApiException;
     
     // Extended Verification APIs
     CompletableFuture<CardDetails> getCardDetailsByNIN(String nationalId) throws NhifApiException;
     CompletableFuture<PercentCovered> getPercentCovered(String authorizationNo, String itemCode) throws NhifApiException;
     CompletableFuture<EligibilityCheck> checkEligibility(String cardNo, String itemCode) throws NhifApiException;
+
+    // Admissions APIs
+    CompletableFuture<List<AdmissionType>> getAdmissionTypes() throws NhifApiException;
+    CompletableFuture<List<DischargeType>> getDischargeTypes() throws NhifApiException;
+    CompletableFuture<List<WardType>> getWardTypes() throws NhifApiException;
+    CompletableFuture<List<RoomType>> getRoomTypes() throws NhifApiException;
+    CompletableFuture<GenericResponse> getDetailsByAuthorizationNo(String authorizationNo) throws NhifApiException;
+    CompletableFuture<GenericResponse> getAdmissionDetailsByAuthorizationNo(String authorizationNo) throws NhifApiException;
+    CompletableFuture<List<AdmissionType>> getAdmissionTypesByProductCode(String productCode) throws NhifApiException;
+    CompletableFuture<GenericResponse> admitPatient(PatientAdmissionModel request) throws NhifApiException;
+    CompletableFuture<GenericResponse> dischargePatient(PatientDischargeModel request) throws NhifApiException;
+    CompletableFuture<GenericResponse> transferPatient(PatientTransferModel request) throws NhifApiException;
+    CompletableFuture<List<AdmittedPatient>> getAdmittedPatients() throws NhifApiException;
+    CompletableFuture<List<AdmittedPatient>> getAdmittedPatientsByFacility(String facilityCode) throws NhifApiException;
+
+    // Packages APIs
+    CompletableFuture<List<PackageItem>> getPackageItems() throws NhifApiException;
+    CompletableFuture<List<ItemType>> getItemTypes() throws NhifApiException;
+    CompletableFuture<List<BenefitScheme>> getBenefitSchemes() throws NhifApiException;
+    CompletableFuture<List<PricePackage>> getPricePackages() throws NhifApiException;
+    CompletableFuture<List<PackageItem>> getPricePackageByFacility(String facilityCode) throws NhifApiException;
 
     // Token management
     String getCurrentToken();

@@ -132,7 +132,130 @@ public class TestExistingEndpoints {
                 System.err.println("✗ Error sending confirmation code: " + e.getMessage());
             }
             
-            System.out.println("\n=== TEST COMPLETED ===");
+            // === REFERENCE DATA APIS ===
+            System.out.println("\n=== TESTING REFERENCE DATA APIS ===");
+            
+            // Test 8: Get Points of Care
+            System.out.println("\n8. Testing getPointsOfCare...");
+            try {
+                client.getPointsOfCare()
+                    .thenAccept(pocs -> {
+                        System.out.println("✓ Points of Care: " + pocs.size() + " items");
+                        pocs.stream().limit(3).forEach(poc -> 
+                            System.out.println("  - " + poc.toString()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting points of care: " + e.getMessage());
+            }
+            
+            // Test 9: Get Visit Types
+            System.out.println("\n9. Testing getVisitTypes...");
+            try {
+                client.getVisitTypes()
+                    .thenAccept(types -> {
+                        System.out.println("✓ Visit Types: " + types.size() + " items");
+                        types.stream().limit(3).forEach(type -> 
+                            System.out.println("  - " + type.toString()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting visit types: " + e.getMessage());
+            }
+            
+            // Test 10: Get Facilities
+            System.out.println("\n10. Testing getFacilities...");
+            try {
+                client.getFacilities()
+                    .thenAccept(facilities -> {
+                        System.out.println("✓ Facilities: " + facilities.size() + " items");
+                        facilities.stream().limit(3).forEach(facility -> 
+                            System.out.println("  - " + facility.toString()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting facilities: " + e.getMessage());
+            }
+            
+            // === ADMISSIONS APIS ===
+            System.out.println("\n=== TESTING ADMISSIONS APIS ===");
+            
+            // Test 11: Get Admission Types
+            System.out.println("\n11. Testing getAdmissionTypes...");
+            try {
+                client.getAdmissionTypes()
+                    .thenAccept(types -> {
+                        System.out.println("✓ Admission Types: " + types.size() + " items");
+                        types.stream().limit(3).forEach(type -> 
+                            System.out.println("  - ID: " + type.getAdmissionTypeID() + 
+                                             ", Name: " + type.getAdmissionTypeName()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting admission types: " + e.getMessage());
+            }
+            
+            // Test 12: Get Ward Types
+            System.out.println("\n12. Testing getWardTypes...");
+            try {
+                client.getWardTypes()
+                    .thenAccept(types -> {
+                        System.out.println("✓ Ward Types: " + types.size() + " items");
+                        types.stream().limit(3).forEach(type -> 
+                            System.out.println("  - ID: " + type.getWardTypeID() + 
+                                             ", Name: " + type.getWardTypeName()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting ward types: " + e.getMessage());
+            }
+            
+            // Test 13: Get Room Types
+            System.out.println("\n13. Testing getRoomTypes...");
+            try {
+                client.getRoomTypes()
+                    .thenAccept(types -> {
+                        System.out.println("✓ Room Types: " + types.size() + " items");
+                        types.stream().limit(3).forEach(type -> 
+                            System.out.println("  - ID: " + type.getRoomTypeID() + 
+                                             ", Name: " + type.getRoomTypeName()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting room types: " + e.getMessage());
+            }
+            
+            // Test 14: Get Discharge Types
+            System.out.println("\n14. Testing getDischargeTypes...");
+            try {
+                client.getDischargeTypes()
+                    .thenAccept(types -> {
+                        System.out.println("✓ Discharge Types: " + types.size() + " items");
+                        types.stream().limit(3).forEach(type -> 
+                            System.out.println("  - ID: " + type.getDischargeTypeID() + 
+                                             ", Name: " + type.getDischargeTypeName()));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting discharge types: " + e.getMessage());
+            }
+            
+            // Test 15: Get Admitted Patients
+            System.out.println("\n15. Testing getAdmittedPatients...");
+            try {
+                client.getAdmittedPatients()
+                    .thenAccept(patients -> {
+                        System.out.println("✓ Admitted Patients: " + patients.size() + " items");
+                        patients.stream().limit(3).forEach(patient -> 
+                            System.out.println("  - " + patient.getFullName() + 
+                                             " (Admission: " + patient.getAdmissionNo() + ")"));
+                    })
+                    .get();
+            } catch (Exception e) {
+                System.err.println("✗ Error getting admitted patients: " + e.getMessage());
+            }
+            
+            System.out.println("\n=== ALL TESTS COMPLETED ===");
             
         } catch (NhifApiException e) {
             System.err.println("Client Error: " + e.getMessage());

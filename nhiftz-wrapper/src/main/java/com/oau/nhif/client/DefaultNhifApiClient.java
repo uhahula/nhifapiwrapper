@@ -7,19 +7,31 @@ import com.oau.nhif.exception.NhifApiException;
 import lombok.SneakyThrows;
 
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CompletionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import lombok.SneakyThrows;
+
+// Apache HttpClient imports for Java 1.8 compatibility
+import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.ContentType;
+import org.apache.http.util.EntityUtils;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.Header;
 
 /**
  * Default implementation of the NHIF API client.
@@ -30,7 +42,7 @@ public class DefaultNhifApiClient implements NhifApiClient {
     private static final Logger logger = LoggerFactory.getLogger(DefaultNhifApiClient.class);
     
     private final NhifApiConfig config;
-    private final HttpClient httpClient;
+    private final CloseableHttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final ScheduledExecutorService scheduler;
     private final AtomicReference<TokenInfo> currentToken = new AtomicReference<>();
@@ -41,15 +53,21 @@ public class DefaultNhifApiClient implements NhifApiClient {
 
     public DefaultNhifApiClient(NhifApiConfig config) throws NhifApiException {
         this.config = config;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(config.getConnectionTimeout())
+        
+        // Build HTTP client with timeout configuration
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout((int) config.getConnectionTimeout().toMillis())
+                .setSocketTimeout((int) config.getReadTimeout().toMillis())
+                .build();
+                
+        this.httpClient = HttpClientBuilder.create()
+                .setDefaultRequestConfig(requestConfig)
                 .build();
         
         // Configure ObjectMapper with appropriate settings
         this.objectMapper = new ObjectMapper()
                 .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
-                .setPropertyNamingStrategy(com.fasterxml.jackson.databind.PropertyNamingStrategies.UPPER_CAMEL_CASE);
+                .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
                 
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
         this.tokenPersistence = new TokenPersistence();
@@ -83,6 +101,22 @@ public class DefaultNhifApiClient implements NhifApiClient {
     public CompletableFuture<AuthorizationResponse> authorizeCard(AuthorizationRequest request) throws NhifApiException {
         return post("/api/Verification/AuthorizeCard", request, AuthorizationResponse.class);
     }
+    
+    @Override
+    public CompletableFuture<CardAuthorizationResponse> authorizeCardWithBiometric(CardAuthorizationRequest request) throws NhifApiException {
+        return post("/api/Verification/AuthorizeCard", request, CardAuthorizationResponse.class);
+    }
+    
+    @Override
+    public CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(String cardNumber, int visitTypeID) throws NhifApiException {
+        SimpleCardAuthorizationRequest request = new SimpleCardAuthorizationRequest(cardNumber, visitTypeID);
+        return authorizeCardSimple(request);
+    }
+    
+    @Override
+    public CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(SimpleCardAuthorizationRequest request) throws NhifApiException {
+        return post("/api/Verification/AuthorizeCard", request, CardAuthorizationResponse.class);
+    }
 
     @Override
     public CompletableFuture<CardVerification> verifyCard(String cardNumber) throws NhifApiException {
@@ -100,7 +134,7 @@ public class DefaultNhifApiClient implements NhifApiClient {
     public CompletableFuture<List<PatientVisit>> getPreviousPatientVisits(String cardNumber) throws NhifApiException {
         // API returns single object, not array - wrap in list
         return get("/api/History/GetPreviousPatientVisists?cardNo=" + cardNumber, PatientVisit.class)
-                .thenApply(visit -> visit != null ? List.of(visit) : List.of());
+                .thenApply(visit -> visit != null ? Arrays.asList(visit) : Collections.emptyList());
     }
 
     @Override
@@ -112,13 +146,14 @@ public class DefaultNhifApiClient implements NhifApiClient {
     @Override
     public CompletableFuture<TestResponse> testClaim() throws NhifApiException {
         // This endpoint doesn't exist in swagger - placeholder implementation
-        return CompletableFuture.completedFuture(new TestResponse("Test endpoint not available", false));
+        CompletableFuture<TestResponse> future = new CompletableFuture<>();
+        future.complete(new TestResponse("Test endpoint not available", false));
+        return future;
     }
 
     @Override
-    public CompletableFuture<ClaimSubmissionResponse> submitFolio(FolioSubmission request) throws NhifApiException {
-        // TODO: Find correct endpoint from swagger or documentation
-        throw new NhifApiException("submitFolio endpoint not yet implemented - endpoint not found in swagger", 501, "Not Implemented");
+    public CompletableFuture<ClaimSubmissionResponse> submitFolio(FolioSubmissionRequest request) throws NhifApiException {
+        return post("/api/Claims/SubmitFolio", request, ClaimSubmissionResponse.class);
     }
 
     @Override
@@ -161,6 +196,11 @@ public class DefaultNhifApiClient implements NhifApiClient {
         return get("/api/Reference/GetFacilities", new TypeReference<List<Facility>>() {});
     }
 
+    @Override
+    public CompletableFuture<List<Disease>> getDiseases() throws NhifApiException {
+        return get("/api/Reference/GetDiseases", new TypeReference<List<Disease>>() {});
+    }
+
     // Extended Verification APIs implementation
     @Override
     public CompletableFuture<CardDetails> getCardDetailsByNIN(String nationalId) throws NhifApiException {
@@ -175,6 +215,93 @@ public class DefaultNhifApiClient implements NhifApiClient {
     @Override
     public CompletableFuture<EligibilityCheck> checkEligibility(String cardNo, String itemCode) throws NhifApiException {
         return get("/api/Approvals/CheckEligibility?cardNo=" + cardNo + "&itemCode=" + itemCode, EligibilityCheck.class);
+    }
+
+    // Admissions APIs implementation
+    @Override
+    public CompletableFuture<List<AdmissionType>> getAdmissionTypes() throws NhifApiException {
+        return get("/api/Admissions/GetAdmissionTypes", new TypeReference<List<AdmissionType>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<DischargeType>> getDischargeTypes() throws NhifApiException {
+        return get("/api/Admissions/GetDischargeTypes", new TypeReference<List<DischargeType>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<WardType>> getWardTypes() throws NhifApiException {
+        return get("/api/Admissions/GetWardTypes", new TypeReference<List<WardType>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<RoomType>> getRoomTypes() throws NhifApiException {
+        return get("/api/Admissions/GetRoomTypes", new TypeReference<List<RoomType>>() {});
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> getDetailsByAuthorizationNo(String authorizationNo) throws NhifApiException {
+        return get("/api/Admissions/GetDetailsByAuthorizationNo?authorizationNo=" + authorizationNo, GenericResponse.class);
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> getAdmissionDetailsByAuthorizationNo(String authorizationNo) throws NhifApiException {
+        return get("/api/Admissions/GetAdmissionDetailsByAuthorizationNo?authorizationNo=" + authorizationNo, GenericResponse.class);
+    }
+
+    @Override
+    public CompletableFuture<List<AdmissionType>> getAdmissionTypesByProductCode(String productCode) throws NhifApiException {
+        return get("/api/Admissions/GetAdmissionTypesByProductCode?productCode=" + productCode, new TypeReference<List<AdmissionType>>() {});
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> admitPatient(PatientAdmissionModel request) throws NhifApiException {
+        return post("/api/Admissions/AdmitPatient", request, GenericResponse.class);
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> dischargePatient(PatientDischargeModel request) throws NhifApiException {
+        return post("/api/Admissions/DishargePatient", request, GenericResponse.class);
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> transferPatient(PatientTransferModel request) throws NhifApiException {
+        return post("/api/Admissions/TransferPatient", request, GenericResponse.class);
+    }
+
+    @Override
+    public CompletableFuture<List<AdmittedPatient>> getAdmittedPatients() throws NhifApiException {
+        return get("/api/Admissions/GetAdmittedPatients", new TypeReference<List<AdmittedPatient>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<AdmittedPatient>> getAdmittedPatientsByFacility(String facilityCode) throws NhifApiException {
+        return get("/api/Admissions/GetAdmittedPatientsByFacility?facilityCode=" + facilityCode, new TypeReference<List<AdmittedPatient>>() {});
+    }
+
+    // Packages APIs implementation
+    @Override
+    public CompletableFuture<List<PackageItem>> getPackageItems() throws NhifApiException {
+        return get("/api/Packages/GetItems", new TypeReference<List<PackageItem>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<ItemType>> getItemTypes() throws NhifApiException {
+        return get("/api/Packages/GetItemTypes", new TypeReference<List<ItemType>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<BenefitScheme>> getBenefitSchemes() throws NhifApiException {
+        return get("/api/Packages/GetBenefitSchemes", new TypeReference<List<BenefitScheme>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<PricePackage>> getPricePackages() throws NhifApiException {
+        return get("/api/Packages/GetPricePackages", new TypeReference<List<PricePackage>>() {});
+    }
+
+    @Override
+    public CompletableFuture<List<PackageItem>> getPricePackageByFacility(String facilityCode) throws NhifApiException {
+        return get("/api/Packages/GetPricePackage?facilityCode=" + facilityCode, new TypeReference<List<PackageItem>>() {});
     }
 
     @Override
@@ -216,11 +343,9 @@ public class DefaultNhifApiClient implements NhifApiClient {
                 );
                 
                 // Create request
-                HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(config.getAuthBaseUrl() + TOKEN_ENDPOINT))
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .POST(HttpRequest.BodyPublishers.ofString(formData))
-                    .build();
+                HttpPost request = new HttpPost(config.getAuthBaseUrl() + TOKEN_ENDPOINT);
+                request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+                request.setEntity(new StringEntity(formData, ContentType.APPLICATION_FORM_URLENCODED));
                 
                 // Log the request (with redacted sensitive data)
                 String sanitizedFormData = formData
@@ -234,47 +359,49 @@ public class DefaultNhifApiClient implements NhifApiClient {
                 
                 // Send request
                 long startTime = System.currentTimeMillis();
-                HttpResponse<String> response = httpClient.send(
-                    request,
-                    HttpResponse.BodyHandlers.ofString()
-                );
+                CloseableHttpResponse response = httpClient.execute(request);
                 long duration = System.currentTimeMillis() - startTime;
                 
-                // Log response status
-                logger.debug("{} - Token response status: {} ({} ms)", requestId, response.statusCode(), duration);
-                
-                
-                if (response.statusCode() >= 400) {
-                    String errorMsg = String.format("Failed to get token. Status: %d, Response: %s", 
-                        response.statusCode(), response.body());
-                    logger.error("{} - {}", requestId, errorMsg);
-                    throw new NhifApiException(errorMsg, response.statusCode(), response.body());
+                try {
+                    // Log response status
+                    logger.debug("{} - Token response status: {} ({} ms)", requestId, response.getStatusLine().getStatusCode(), duration);
+                    
+                    String responseBody = EntityUtils.toString(response.getEntity());
+                    
+                    if (response.getStatusLine().getStatusCode() >= 400) {
+                        String errorMsg = String.format("Failed to get token. Status: %d, Response: %s", 
+                            response.getStatusLine().getStatusCode(), responseBody);
+                        logger.error("{} - {}", requestId, errorMsg);
+                        throw new NhifApiException(errorMsg, response.getStatusLine().getStatusCode(), responseBody);
+                    }
+                    
+                    // Parse token response
+                    TokenResponse tokenResponse = objectMapper.readValue(responseBody, TokenResponse.class);
+                    
+                    TokenInfo newToken = new TokenInfo(
+                        tokenResponse.getAccessToken(), 
+                        tokenResponse.getExpiresIn()
+                    );
+                    
+                    // Update current token and save to disk
+                    currentToken.set(newToken);
+                    tokenPersistence.saveToken(newToken);
+                    
+                    // Log success (without exposing the actual token)
+                    logger.info("{} - Successfully obtained access token, expires at {}", 
+                        requestId, newToken.getExpiresAt());
+                    
+                    // Schedule token refresh
+                    scheduleTokenRefresh(newToken.getExpiresAt());
+                    
+                    logger.debug("{} - Next token refresh scheduled", requestId);
+                    
+                } finally {
+                    response.close();
                 }
                 
-                // Parse token response
-                TokenResponse tokenResponse = objectMapper.readValue(response.body(), TokenResponse.class);
-                
-                TokenInfo newToken = new TokenInfo(
-                    tokenResponse.getAccessToken(), 
-                    tokenResponse.getExpiresIn()
-                );
-                
-                
-                // Update current token and save to disk
-                currentToken.set(newToken);
-                tokenPersistence.saveToken(newToken);
-                
-                // Log success (without exposing the actual token)
-                logger.info("{} - Successfully obtained access token, expires at {}", 
-                    requestId, newToken.getExpiresAt());
-                
-                // Schedule token refresh
-                scheduleTokenRefresh(newToken.getExpiresAt());
-                
-                logger.debug("{} - Next token refresh scheduled", requestId);
-                
             } catch (Exception e) {
-                String errorMsg = String.format("Failed to parse token response: %s", e.getMessage());
+                String errorMsg = String.format("Failed to get token: %s", e.getMessage());
                 logger.error("{} - {}", requestId, errorMsg, e);
                 throw new NhifApiException(errorMsg, 500, e.getMessage());
             }
@@ -300,6 +427,13 @@ public class DefaultNhifApiClient implements NhifApiClient {
         } catch (InterruptedException e) {
             scheduler.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+        
+        // Close HTTP client
+        try {
+            httpClient.close();
+        } catch (Exception e) {
+            logger.warn("Error closing HTTP client", e);
         }
     }
     
@@ -347,27 +481,20 @@ public class DefaultNhifApiClient implements NhifApiClient {
 
     // Helper methods for HTTP requests
     
-    // ... (rest of the code remains the same)
     private <T> CompletableFuture<T> get(String path, Class<T> responseType) throws NhifApiException {
         return withToken().thenCompose(token -> {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(config.getServiceBaseUrl() + path))
-                    .header("Authorization", token)
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
+            HttpGet request = new HttpGet(config.getServiceBaseUrl() + path);
+            request.setHeader("Authorization", token);
+            request.setHeader("Accept", "application/json");
             return sendAsync(request, responseType);
         });
     }
     
     private <T> CompletableFuture<T> get(String path, TypeReference<T> typeReference) throws NhifApiException {
         return withToken().thenCompose(token -> {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(config.getServiceBaseUrl() + path))
-                    .header("Authorization", token)
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
+            HttpGet request = new HttpGet(config.getServiceBaseUrl() + path);
+            request.setHeader("Authorization", token);
+            request.setHeader("Accept", "application/json");
             return sendAsync(request, typeReference);
         });
     }
@@ -376,113 +503,108 @@ public class DefaultNhifApiClient implements NhifApiClient {
         return withToken().thenCompose(token -> {
             try {
                 String body = objectMapper.writeValueAsString(requestBody);
-                String requestId = String.format("REQ-%08x", System.identityHashCode(body));
                 
-                HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(config.getServiceBaseUrl() + path))
-                    .header("Authorization", token)
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
+                HttpPost request = new HttpPost(config.getServiceBaseUrl() + path);
+                request.setHeader("Authorization", token);
+                request.setHeader("Content-Type", "application/json");
+                request.setHeader("Accept", "application/json");
+                request.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+                
                 return sendAsync(request, responseType);
             } catch (Exception e) {
-                return CompletableFuture.failedFuture(e);
+                CompletableFuture<R> future = new CompletableFuture<>();
+                future.completeExceptionally(e);
+                return future;
             }
         });
     }
     
-    private <T> CompletableFuture<T> sendAsync(HttpRequest request, Class<T> responseType) {
+    private <T> CompletableFuture<T> sendAsync(HttpUriRequest request, Class<T> responseType) {
         final String requestId = String.format("REQ-%08x", System.identityHashCode(request));
         final long startTime = System.currentTimeMillis();
         
         logRequest(request, requestId);
         
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    long duration = System.currentTimeMillis() - startTime;
-                    logResponse(request, requestId, response, duration);
-                    
-                    if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                        try {
-                            T result = objectMapper.readValue(response.body(), responseType);
-                            logger.debug("{} - Successfully parsed response to {}", requestId, responseType.getSimpleName());
-                            return result;
-                        } catch (Exception e) {
-                            String errorMsg = String.format("%s - Failed to parse response: %s", requestId, e.getMessage());
-                            logger.error(errorMsg, e);
-                            throw new CompletionException(errorMsg, e);
-                        }
-                    } else {
-                        String errorMsg = String.format("%s - Request failed with status %d: %s", 
-                            requestId, response.statusCode(), response.body());
-                        logger.error(errorMsg);
-                        throw new CompletionException(new NhifApiException(errorMsg));
+        return CompletableFuture.supplyAsync(() -> {
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                long duration = System.currentTimeMillis() - startTime;
+                String responseBody = EntityUtils.toString(response.getEntity());
+                logResponse(request, requestId, response, responseBody, duration);
+                
+                if (response.getStatusLine().getStatusCode() >= 200 && response.getStatusLine().getStatusCode() < 300) {
+                    try {
+                        T result = objectMapper.readValue(responseBody, responseType);
+                        logger.debug("{} - Successfully parsed response to {}", requestId, responseType.getSimpleName());
+                        return result;
+                    } catch (Exception e) {
+                        String errorMsg = String.format("%s - Failed to parse response: %s", requestId, e.getMessage());
+                        logger.error(errorMsg, e);
+                        throw new CompletionException(errorMsg, e);
                     }
-                })
-                .exceptionally(e -> {
-                    logger.error("{} - Request failed: {}", requestId, e.getMessage(), e);
-                    throw new CompletionException(e);
-                });
+                } else {
+                    String errorMsg = String.format("%s - Request failed with status %d: %s", 
+                        requestId, response.getStatusLine().getStatusCode(), responseBody);
+                    logger.error(errorMsg);
+                    throw new CompletionException(new NhifApiException(errorMsg));
+                }
+            } catch (Exception e) {
+                logger.error("{} - Request failed: {}", requestId, e.getMessage(), e);
+                throw new CompletionException(e);
+            }
+        });
     }
     
-    private <T> CompletableFuture<T> sendAsync(HttpRequest request, TypeReference<T> typeReference) {
+    private <T> CompletableFuture<T> sendAsync(HttpUriRequest request, TypeReference<T> typeReference) {
         final String requestId = String.format("REQ-%08x", System.identityHashCode(request));
         final long startTime = System.currentTimeMillis();
         
         logRequest(request, requestId);
         
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    long duration = System.currentTimeMillis() - startTime;
-                    logResponse(request, requestId, response, duration);
-                    
-                    if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                        try {
-                            T result = objectMapper.readValue(response.body(), typeReference);
-                            logger.debug("{} - Successfully parsed response to {}", requestId, typeReference.getType().getTypeName());
-                            return result;
-                        } catch (Exception e) {
-                            String errorMsg = String.format("%s - Failed to parse response: %s", requestId, e.getMessage());
-                            logger.error(errorMsg, e);
-                            throw new CompletionException(errorMsg, e);
-                        }
-                    } else {
-                        String errorMsg = String.format("%s - Request failed with status %d: %s", 
-                            requestId, response.statusCode(), response.body());
-                        logger.error(errorMsg);
-                        throw new CompletionException(new NhifApiException(errorMsg));
+        return CompletableFuture.supplyAsync(() -> {
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                long duration = System.currentTimeMillis() - startTime;
+                String responseBody = EntityUtils.toString(response.getEntity());
+                logResponse(request, requestId, response, responseBody, duration);
+                
+                if (response.getStatusLine().getStatusCode() >= 200 && response.getStatusLine().getStatusCode() < 300) {
+                    try {
+                        T result = objectMapper.readValue(responseBody, typeReference);
+                        logger.debug("{} - Successfully parsed response to {}", requestId, typeReference.getType().getTypeName());
+                        return result;
+                    } catch (Exception e) {
+                        String errorMsg = String.format("%s - Failed to parse response: %s", requestId, e.getMessage());
+                        logger.error(errorMsg, e);
+                        throw new CompletionException(errorMsg, e);
                     }
-                })
-                .exceptionally(e -> {
-                    logger.error("{} - Request failed: {}", requestId, e.getMessage(), e);
-                    throw new CompletionException(e);
-                });
+                } else {
+                    String errorMsg = String.format("%s - Request failed with status %d: %s", 
+                        requestId, response.getStatusLine().getStatusCode(), responseBody);
+                    logger.error(errorMsg);
+                    throw new CompletionException(new NhifApiException(errorMsg));
+                }
+            } catch (Exception e) {
+                logger.error("{} - Request failed: {}", requestId, e.getMessage(), e);
+                throw new CompletionException(e);
+            }
+        });
     }
     
     /**
      * Helper method to log HTTP request details
      */
-    private void logRequest(HttpRequest request, String requestId) {
+    private void logRequest(HttpUriRequest request, String requestId) {
         if (logger.isDebugEnabled()) {
             StringBuilder logMsg = new StringBuilder();
             logMsg.append(String.format("%s - Sending %s request to: %s\n", 
-                requestId, request.method(), request.uri()));
+                requestId, request.getMethod(), request.getURI()));
                 
             // Log headers (redacting sensitive information)
-            request.headers().map()
-                .forEach((name, values) -> 
-                    values.forEach(value -> {
-                        if (name != null && name.equalsIgnoreCase("authorization")) {
-                            logMsg.append(String.format("%s: %s\n", name, "[REDACTED]"));
-                        } else {
-                            logMsg.append(String.format("%s: %s\n", name, value));
-                        }
-                    }));
-                
-            // For requests with body
-            if (request.bodyPublisher().isPresent()) {
-                logMsg.append("[Request body present]\n");
+            for (Header header : request.getAllHeaders()) {
+                if (header.getName() != null && header.getName().equalsIgnoreCase("authorization")) {
+                    logMsg.append(String.format("%s: %s\n", header.getName(), "[REDACTED]"));
+                } else {
+                    logMsg.append(String.format("%s: %s\n", header.getName(), header.getValue()));
+                }
             }
             
             logger.debug(logMsg.toString());
@@ -492,32 +614,30 @@ public class DefaultNhifApiClient implements NhifApiClient {
     /**
      * Helper method to log HTTP response details
      */
-    private void logResponse(HttpRequest request, String requestId, HttpResponse<String> response, long durationMs) {
+    private void logResponse(HttpUriRequest request, String requestId, CloseableHttpResponse response, String responseBody, long durationMs) {
         if (logger.isDebugEnabled()) {
             StringBuilder logMsg = new StringBuilder();
             logMsg.append(String.format("%s - Received response in %d ms - Status: %d %s %s\n", 
                 requestId, 
                 durationMs, 
-                response.statusCode(),
-                request.method(),
-                request.uri().getPath()));
+                response.getStatusLine().getStatusCode(),
+                request.getMethod(),
+                request.getURI().getPath()));
                 
             // Log response headers (redacting sensitive information)
-            response.headers().map()
-                .forEach((name, values) -> 
-                    values.forEach(value -> {
-                        if (name != null && name.toLowerCase().contains("authorization")) {
-                            logMsg.append(String.format("%s: %s\n", name, "[REDACTED]"));
-                        } else {
-                            logMsg.append(String.format("%s: %s\n", name, value));
-                        }
-                    }));
+            for (Header header : response.getAllHeaders()) {
+                if (header.getName() != null && header.getName().toLowerCase().contains("authorization")) {
+                    logMsg.append(String.format("%s: %s\n", header.getName(), "[REDACTED]"));
+                } else {
+                    logMsg.append(String.format("%s: %s\n", header.getName(), header.getValue()));
+                }
+            }
                 
             // Log response body (first 1000 chars to avoid huge logs)
-            if (response.body() != null && !response.body().isEmpty()) {
-                String bodyPreview = response.body().length() > 1000 
-                    ? response.body().substring(0, 1000) + "... [truncated]" 
-                    : response.body();
+            if (responseBody != null && !responseBody.isEmpty()) {
+                String bodyPreview = responseBody.length() > 1000 
+                    ? responseBody.substring(0, 1000) + "... [truncated]" 
+                    : responseBody;
                 logMsg.append("Response body: ").append(bodyPreview).append("\n");
             }
             
@@ -532,14 +652,22 @@ public class DefaultNhifApiClient implements NhifApiClient {
                 refreshToken();
                 tokenInfo = currentToken.get();
                 if (tokenInfo == null) {
-                    return CompletableFuture.failedFuture(new NhifApiException("Failed to obtain access token"));
+                    CompletableFuture<String> future = new CompletableFuture<>();
+                    future.completeExceptionally(new NhifApiException("Failed to obtain access token"));
+                    return future;
                 }
-                return CompletableFuture.completedFuture("Bearer " + tokenInfo.getToken());
+                CompletableFuture<String> future = new CompletableFuture<>();
+                future.complete("Bearer " + tokenInfo.getToken());
+                return future;
             } catch (NhifApiException e) {
-                return CompletableFuture.failedFuture(e);
+                CompletableFuture<String> future = new CompletableFuture<>();
+                future.completeExceptionally(e);
+                return future;
             }
         }
-        return CompletableFuture.completedFuture("Bearer " + tokenInfo.getToken());
+        CompletableFuture<String> future = new CompletableFuture<>();
+        future.complete("Bearer " + tokenInfo.getToken());
+        return future;
     }
     
     // Token response DTO
