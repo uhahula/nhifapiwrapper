@@ -26,12 +26,14 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<MedicalHistory> getMedicalHistory(String cardNumber) throws NhifApiException;
 
     // Claim APIs
-    CompletableFuture<TestResponse> testClaim() throws NhifApiException;
+    CompletableFuture<ClaimTest> testClaim() throws NhifApiException;
     CompletableFuture<ClaimSubmissionResponse> submitFolio(FolioSubmissionRequest request) throws NhifApiException;
     CompletableFuture<SubmittedClaim> getSubmittedClaim(String claimId) throws NhifApiException;
+    CompletableFuture<List<ClaimSubmission>> getSubmittedClaims(String facilityCode, int claimYear, int claimMonth) throws NhifApiException;
     CompletableFuture<Receipt> getReceipt(String claimId) throws NhifApiException;
     CompletableFuture<ConfirmationResponse> sendConfirmationCode(String phoneNumber) throws NhifApiException;
     CompletableFuture<MonthlyClaimResponse> submitMonthlyClaim(MonthlyClaim request) throws NhifApiException;
+    CompletableFuture<MonthlyClaimSubmissionResponse> submitMonthlyClaimSubmission(MonthlyClaimSubmission request) throws NhifApiException;
 
     // Reference Data APIs
     CompletableFuture<List<PointOfCare>> getPointsOfCare() throws NhifApiException;
@@ -63,7 +65,11 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<List<ItemType>> getItemTypes() throws NhifApiException;
     CompletableFuture<List<BenefitScheme>> getBenefitSchemes() throws NhifApiException;
     CompletableFuture<List<PricePackage>> getPricePackages() throws NhifApiException;
-    CompletableFuture<List<PackageItem>> getPricePackageByFacility(String facilityCode) throws NhifApiException;
+    CompletableFuture<List<FacilityPackageItem>> getPricePackageByFacility(String facilityCode) throws NhifApiException;
+
+    // Attendance APIs
+    CompletableFuture<GenericResponse> loginPractitioner(PractitionerAttendanceRequest request) throws NhifApiException;
+    CompletableFuture<GenericResponse> logoutPractitioner(String practitionerNo, String facilityCode) throws NhifApiException;
 
     // Token management
     String getCurrentToken();

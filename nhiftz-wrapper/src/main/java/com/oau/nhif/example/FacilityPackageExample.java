@@ -2,6 +2,7 @@ package com.oau.nhif.example;
 
 import com.oau.nhif.client.NhifApiClient;
 import com.oau.nhif.client.NhifApiClientFactory;
+import com.oau.nhif.client.model.FacilityPackageItem;
 import com.oau.nhif.client.model.PackageItem;
 import com.oau.nhif.client.model.ItemType;
 import com.oau.nhif.exception.NhifApiException;
@@ -45,7 +46,7 @@ public class FacilityPackageExample {
             
             // Get facility-specific package items
             System.out.println("\n3. Fetching facility-specific package items...");
-            List<PackageItem> facilityItems = client.getPricePackageByFacility(clientId).get();
+            List<FacilityPackageItem> facilityItems = client.getPricePackageByFacility(clientId).get();
             System.out.printf("Package items available for facility %s: %d\n", clientId, facilityItems.size());
             
             if (facilityItems.isEmpty()) {
@@ -78,9 +79,9 @@ public class FacilityPackageExample {
             
             // Show high-value items available at facility
             System.out.println("\n5. High-value items (>500,000 TSh) available at facility...");
-            List<PackageItem> highValueItems = facilityItems.stream()
-                .filter(item -> item.getCommonPrice() != null && item.getCommonPrice() > 500000)
-                .sorted((a, b) -> Double.compare(b.getCommonPrice(), a.getCommonPrice()))
+            List<FacilityPackageItem> highValueItems = facilityItems.stream()
+                .filter(item -> item.getUnitPrice() != null && item.getUnitPrice() > 500000)
+                .sorted((a, b) -> Double.compare(b.getUnitPrice(), a.getUnitPrice()))
                 .limit(5)
                 .collect(Collectors.toList());
             
@@ -90,34 +91,14 @@ public class FacilityPackageExample {
                 highValueItems.forEach(item -> {
                     System.out.printf("  %s - %s\n", item.getItemCode(), item.getItemName());
                     System.out.printf("    Price: TSh %,.2f, Coverage: %d%%, Type: %d\n", 
-                        item.getCommonPrice(), item.getPercentCovered(), item.getItemTypeID());
+                        item.getUnitPrice(), item.getUnitPrice(), item.getItemTypeID());
                 });
             }
             
-            // Show restricted items available at facility
-            System.out.println("\n6. Restricted items available at facility...");
-            List<PackageItem> restrictedItems = facilityItems.stream()
-                .filter(item -> Boolean.TRUE.equals(item.getIsRestricted()))
-                .limit(5)
-                .collect(Collectors.toList());
-            
-            if (restrictedItems.isEmpty()) {
-                System.out.println("No restricted items found for this facility.");
-            } else {
-                restrictedItems.forEach(item -> {
-                    System.out.printf("  %s - %s\n", item.getItemCode(), item.getItemName());
-                    System.out.printf("    Waiting Period: %d days, Coverage: %d%%\n", 
-                        item.getWaitingPeriod(), item.getPercentCovered());
-                    if (item.getEligibility() != null) {
-                        System.out.printf("    Eligibility: %s\n", item.getEligibility());
-                    }
-                    System.out.println();
-                });
-            }
-            
+
             // Show medication items at facility
             System.out.println("7. Medication items with dosage info at facility...");
-            List<PackageItem> medications = facilityItems.stream()
+            List<FacilityPackageItem> medications = facilityItems.stream()
                 .filter(item -> item.getDosage() != null && !item.getDosage().trim().isEmpty())
                 .limit(3)
                 .collect(Collectors.toList());
@@ -130,38 +111,12 @@ public class FacilityPackageExample {
                     System.out.printf("    Strength: %s, Dosage: %s\n", 
                         item.getStrength(), item.getDosage());
                     System.out.printf("    Calculated Per Day: %s, Coverage: %d%%\n", 
-                        item.getCalculatedPerDay(), item.getPercentCovered());
+                        item.getPriceCode(), item.getMaximumQuantity());
                     System.out.println();
                 });
             }
             
-            // Compare active vs inactive items
-            System.out.println("8. Active vs Inactive items at facility...");
-            long activeItems = facilityItems.stream()
-                .filter(item -> Boolean.TRUE.equals(item.getIsActive()))
-                .count();
-            long inactiveItems = facilityItems.size() - activeItems;
-            
-            System.out.printf("Active items: %d (%.1f%%)\n", 
-                activeItems, (activeItems * 100.0 / facilityItems.size()));
-            System.out.printf("Inactive items: %d (%.1f%%)\n", 
-                inactiveItems, (inactiveItems * 100.0 / facilityItems.size()));
-            
-            // Show items by service type
-            System.out.println("\n9. Items by service type at facility...");
-            facilityItems.stream()
-                .filter(item -> item.getServiceTypeID() != null)
-                .collect(java.util.stream.Collectors.groupingBy(
-                    PackageItem::getServiceTypeID,
-                    java.util.stream.Collectors.counting()))
-                .entrySet().stream()
-                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
-                .limit(5)
-                .forEach(entry -> {
-                    System.out.printf("  Service Type %d: %d items\n", 
-                        entry.getKey(), entry.getValue());
-                });
-            
+
             System.out.println("\n=== Facility Package Example Complete ===");
             
         } catch (NhifApiException | InterruptedException | ExecutionException e) {
@@ -169,37 +124,5 @@ public class FacilityPackageExample {
             e.printStackTrace();
         }
     }
-    
-    /**
-     * Utility method to compare two facilities' package coverage
-     */
-    public static void compareFacilities(NhifApiClient client, String facility1Code, String facility2Code) 
-            throws InterruptedException, ExecutionException, NhifApiException {
-        
-        System.out.println("=== Comparing Facility Package Coverage ===");
-        
-        List<PackageItem> facility1Items = client.getPricePackageByFacility(facility1Code).get();
-        List<PackageItem> facility2Items = client.getPricePackageByFacility(facility2Code).get();
-        
-        System.out.printf("Facility %s: %d items\n", facility1Code, facility1Items.size());
-        System.out.printf("Facility %s: %d items\n", facility2Code, facility2Items.size());
-        
-        // Find common items
-        List<String> facility1Codes = facility1Items.stream()
-            .map(PackageItem::getItemCode)
-            .collect(Collectors.toList());
-        List<String> facility2Codes = facility2Items.stream()
-            .map(PackageItem::getItemCode)
-            .collect(Collectors.toList());
-        
-        long commonItems = facility1Codes.stream()
-            .filter(facility2Codes::contains)
-            .count();
-        
-        System.out.printf("Common items: %d\n", commonItems);
-        System.out.printf("Facility %s unique items: %d\n", 
-            facility1Code, facility1Items.size() - commonItems);
-        System.out.printf("Facility %s unique items: %d\n", 
-            facility2Code, facility2Items.size() - commonItems);
-    }
+
 }

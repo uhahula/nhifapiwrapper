@@ -29,7 +29,7 @@ public class NhifApiExample {
                 clientSecret, 
                 username)) {
             
-            // Example 1: Get card details
+           /* // Example 1: Get card details
             String cardNumber = "203801301050";
             System.out.println("Fetching card details for: " + cardNumber);
             client.getCardDetails(cardNumber)
@@ -109,9 +109,35 @@ public class NhifApiExample {
                 })
                 .get();
 
+*/
+            // Example 7: Get authorization details
+
+            String autho = "480527859458";
+            // GenericResponse admtype9 = client.getDetailsByAuthorizationNo(admin).get();
+            System.out.println("\nGetAuthorization Details:");
+            client.getAuthorizationDetails(autho)
+                    .thenAccept(card4 -> {
+                        System.out.println("Authorization Number: " + card4.getAuthorizationNo());
+                        System.out.println("Authorization ID: " + card4.getAuthorizationId());
+                        System.out.println("Card Number: " + card4.getCardNo());
+                        System.out.println("Member Number: " + card4.getMembershipNo());
+                        System.out.println("Full Name: " + card4.getFullName());
+                        System.out.println("Authorization Status: " + card4.getAuthorizationStatus());
+                        System.out.println("Authorization Date: " + card4.getAuthorizationDate());
+                        System.out.println("Facility Code: " + card4.getFacilityCode());
+                        System.out.println("Card Status: " + card4.getCardStatus());
+                        System.out.println("Is Valid Card: " + card4.getIsValidCard());
+
+                    })
+                    .get();
+
+
+
         } catch (NhifApiException | InterruptedException | ExecutionException e) {
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
         }
+
+
     }
 }

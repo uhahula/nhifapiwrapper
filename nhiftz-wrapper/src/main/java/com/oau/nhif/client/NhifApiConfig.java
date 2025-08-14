@@ -20,6 +20,7 @@ public class NhifApiConfig {
     private final Duration readTimeout;
     private final int maxRetries;
     private final boolean enableLogging;
+    private final boolean skipSslVerification;
 
     private NhifApiConfig( Builder builder) {
         this.authBaseUrl = builder.authBaseUrl;
@@ -31,6 +32,7 @@ public class NhifApiConfig {
         this.readTimeout = builder.readTimeout;
         this.maxRetries = builder.maxRetries;
         this.enableLogging = builder.enableLogging;
+        this.skipSslVerification = builder.skipSslVerification;
     }
 
     public static Builder builder() {
@@ -47,6 +49,7 @@ public class NhifApiConfig {
         private Duration readTimeout = Duration.ofSeconds(30);
         private int maxRetries = 3;
         private boolean enableLogging = false;
+        private boolean skipSslVerification = true;  // Default to true to avoid ssl verification errors
 
         public Builder authBaseUrl(String baseUrl) {
             this.authBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -93,6 +96,11 @@ public class NhifApiConfig {
 
         public Builder enableLogging(boolean enableLogging) {
             this.enableLogging = enableLogging;
+            return this;
+        }
+
+        public Builder skipSslVerification(boolean skipSslVerification) {
+            this.skipSslVerification = skipSslVerification;
             return this;
         }
 

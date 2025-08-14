@@ -2,10 +2,7 @@ package com.oau.nhif.example;
 
 import com.oau.nhif.client.NhifApiClient;
 import com.oau.nhif.client.NhifApiClientFactory;
-import com.oau.nhif.client.model.PackageItem;
-import com.oau.nhif.client.model.ItemType;
-import com.oau.nhif.client.model.BenefitScheme;
-import com.oau.nhif.client.model.PricePackage;
+import com.oau.nhif.client.model.*;
 import com.oau.nhif.exception.NhifApiException;
 
 import java.util.List;
@@ -25,7 +22,7 @@ public class PackagesApiExample {
     public static void main(String[] args) {
         // Initialize the client with your credentials
         String authBaseUrl = "https://verification.nhif.or.tz";
-        String serviceBaseUrl = "http://test.nhif.or.tz/servicehub";
+        String serviceBaseUrl = "http://test.nhif.or.tz/ocs";
         String clientId = "11014";
         String clientSecret = "ntbzRGbrwwHj8Jwd7bbPsg==";
         String username = "Mtundi";
@@ -99,7 +96,7 @@ public class PackagesApiExample {
             // Get facility-specific price package items
             System.out.println("\n5. Fetching facility-specific price package items...");
             
-            List<PackageItem> facilityPackageItems = client.getPricePackageByFacility(clientId).get();
+            List<FacilityPackageItem> facilityPackageItems = client.getPricePackageByFacility(clientId).get();
             System.out.println("Facility-specific package items found: " + facilityPackageItems.size());
             
             if (!facilityPackageItems.isEmpty()) {
@@ -108,10 +105,10 @@ public class PackagesApiExample {
                     .limit(3)
                     .forEach(item -> {
                         System.out.printf("  %s - %s\n", item.getItemCode(), item.getItemName());
-                        System.out.printf("    Type: %d, Price: TSh %,.2f, Coverage: %d%%\n", 
-                            item.getItemTypeID(), item.getCommonPrice(), item.getPercentCovered());
+                        System.out.printf("    Type: %d, Price: TSh %,.2f, Coverage: %s%%\n",
+                            item.getItemTypeID(), item.getUnitPrice(), item.getPriceCode());
                         System.out.printf("    Restricted: %s, Active: %s\n", 
-                            item.getIsRestricted(), item.getIsActive());
+                            item.getIsRestricted(), item.getStrength());
                     });
             }
             

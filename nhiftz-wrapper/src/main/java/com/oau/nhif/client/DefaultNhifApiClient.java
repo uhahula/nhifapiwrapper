@@ -23,6 +23,9 @@ import org.slf4j.LoggerFactory;
 import org.apache.http.client.HttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -59,10 +62,30 @@ public class DefaultNhifApiClient implements NhifApiClient {
                 .setConnectTimeout((int) config.getConnectionTimeout().toMillis())
                 .setSocketTimeout((int) config.getReadTimeout().toMillis())
                 .build();
+        
+        try {
+            HttpClientBuilder clientBuilder = HttpClientBuilder.create()
+                    .setDefaultRequestConfig(requestConfig);
+            
+            // Configure SSL if needed
+            if (config.isSkipSslVerification()) {
+                // Create trust strategy that accepts all certificates
+                TrustStrategy acceptingTrustStrategy = (cert, authType) -> true;
                 
-        this.httpClient = HttpClientBuilder.create()
-                .setDefaultRequestConfig(requestConfig)
-                .build();
+                // Build SSL context
+                SSLConnectionSocketFactory sslConnectionSocketFactory = new SSLConnectionSocketFactory(
+                    new SSLContextBuilder()
+                        .loadTrustMaterial(null, acceptingTrustStrategy)
+                        .build(),
+                    SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+                
+                clientBuilder.setSSLSocketFactory(sslConnectionSocketFactory);
+            }
+            
+            this.httpClient = clientBuilder.build();
+        } catch (Exception e) {
+            throw new NhifApiException("Failed to initialize HTTP client: " + e.getMessage(), e);
+        }
         
         // Configure ObjectMapper with appropriate settings
         this.objectMapper = new ObjectMapper()
@@ -144,11 +167,8 @@ public class DefaultNhifApiClient implements NhifApiClient {
     }
 
     @Override
-    public CompletableFuture<TestResponse> testClaim() throws NhifApiException {
-        // This endpoint doesn't exist in swagger - placeholder implementation
-        CompletableFuture<TestResponse> future = new CompletableFuture<>();
-        future.complete(new TestResponse("Test endpoint not available", false));
-        return future;
+    public CompletableFuture<ClaimTest> testClaim() throws NhifApiException {
+        return get("/api/Claims/Test", ClaimTest.class);
     }
 
     @Override
@@ -160,6 +180,11 @@ public class DefaultNhifApiClient implements NhifApiClient {
     public CompletableFuture<SubmittedClaim> getSubmittedClaim(String claimId) throws NhifApiException {
         // TODO: Find correct endpoint from swagger or documentation
         throw new NhifApiException("getSubmittedClaim endpoint not yet implemented - endpoint not found in swagger", 501, "Not Implemented");
+    }
+    
+    @Override
+    public CompletableFuture<List<ClaimSubmission>> getSubmittedClaims(String facilityCode, int claimYear, int claimMonth) throws NhifApiException {
+        return get("/api/Claims/GetSubmittedClaims?facilityCode=" + facilityCode + "&claimYear=" + claimYear + "&claimMonth=" + claimMonth, new TypeReference<List<ClaimSubmission>>() {});
     }
 
     @Override
@@ -178,6 +203,11 @@ public class DefaultNhifApiClient implements NhifApiClient {
     public CompletableFuture<MonthlyClaimResponse> submitMonthlyClaim(MonthlyClaim request) throws NhifApiException {
         // TODO: Find correct endpoint from swagger or documentation
         throw new NhifApiException("submitMonthlyClaim endpoint not yet implemented - endpoint not found in swagger", 501, "Not Implemented");
+    }
+    
+    @Override
+    public CompletableFuture<MonthlyClaimSubmissionResponse> submitMonthlyClaimSubmission(MonthlyClaimSubmission request) throws NhifApiException {
+        return post("/api/Claims/SubmitMonthlyClaim", request, MonthlyClaimSubmissionResponse.class);
     }
 
     // Reference Data APIs implementation
@@ -300,8 +330,19 @@ public class DefaultNhifApiClient implements NhifApiClient {
     }
 
     @Override
-    public CompletableFuture<List<PackageItem>> getPricePackageByFacility(String facilityCode) throws NhifApiException {
-        return get("/api/Packages/GetPricePackage?facilityCode=" + facilityCode, new TypeReference<List<PackageItem>>() {});
+    public CompletableFuture<List<FacilityPackageItem>> getPricePackageByFacility(String facilityCode) throws NhifApiException {
+        return get("/api/Packages/GetPricePackage?facilityCode=" + facilityCode, new TypeReference<List<FacilityPackageItem>>() {});
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> loginPractitioner(PractitionerAttendanceRequest request) throws NhifApiException {
+        return post("/api/Attendance/LoginPractitioner", request, GenericResponse.class);
+    }
+
+    @Override
+    public CompletableFuture<GenericResponse> logoutPractitioner(String practitionerNo, String facilityCode) throws NhifApiException {
+        return post("/api/Attendance/LogoutPractitioner?practitionerNo=" + practitionerNo + "&facilityCode=" + facilityCode, 
+                   null, GenericResponse.class);
     }
 
     @Override

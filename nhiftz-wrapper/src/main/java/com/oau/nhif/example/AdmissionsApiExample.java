@@ -169,7 +169,7 @@ public class AdmissionsApiExample {
             System.out.println("6. Querying admission details...");
             
             try {
-                GenericResponse admissionDetails = client.getAdmissionDetailsByAuthorizationNo("AUTH123456789").get();
+                GenericResponse admissionDetails = client.getAdmissionDetailsByAuthorizationNo("480527859458").get();
                 System.out.println("Admission details: " + admissionDetails.getMessage());
             } catch (Exception e) {
                 System.out.println("Could not retrieve admission details: " + e.getMessage());

@@ -1,45 +1,70 @@
 package com.oau.nhif.client.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Response model for claim submission
+ * Response model for folio submission
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ClaimSubmissionResponse {
-    @JsonProperty("success")
-    private boolean success;
+    // Success response fields (HTTP 200/100)
+    @JsonProperty("SubmissionID")
+    private String submissionId;
     
-    @JsonProperty("claimNumber")
-    private String claimNumber;
+    @JsonProperty("AcknowledgementNo")
+    private String acknowledgementNo;
     
-    @JsonProperty("message")
+    @JsonProperty("DateSubmitted")
+    private String dateSubmitted;
+    
+    // Error response fields (HTTP 500)
+    @JsonProperty("StatusCode")
+    private Integer statusCode;
+    
+    @JsonProperty("Message")
     private String message;
     
-    @JsonProperty("timestamp")
-    private String timestamp;
-    
-    @JsonProperty("amountClaimed")
-    private double amountClaimed;
-    
-    @JsonProperty("referenceNumber")
-    private String referenceNumber;
+    @JsonProperty("ReasonPhrase")
+    private String reasonPhrase;
     
     // Getters and setters
-    public boolean isSuccess() { return success; }
-    public void setSuccess(boolean success) { this.success = success; }
+    public String getSubmissionId() { return submissionId; }
+    public void setSubmissionId(String submissionId) { this.submissionId = submissionId; }
     
-    public String getClaimNumber() { return claimNumber; }
-    public void setClaimNumber(String claimNumber) { this.claimNumber = claimNumber; }
+    public String getAcknowledgementNo() { return acknowledgementNo; }
+    public void setAcknowledgementNo(String acknowledgementNo) { this.acknowledgementNo = acknowledgementNo; }
+    
+    public String getDateSubmitted() { return dateSubmitted; }
+    public void setDateSubmitted(String dateSubmitted) { this.dateSubmitted = dateSubmitted; }
+    
+    public Integer getStatusCode() { return statusCode; }
+    public void setStatusCode(Integer statusCode) { this.statusCode = statusCode; }
     
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
     
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+    public String getReasonPhrase() { return reasonPhrase; }
+    public void setReasonPhrase(String reasonPhrase) { this.reasonPhrase = reasonPhrase; }
     
-    public double getAmountClaimed() { return amountClaimed; }
-    public void setAmountClaimed(double amountClaimed) { this.amountClaimed = amountClaimed; }
+    public boolean isSuccess() {
+        return statusCode == null || (statusCode >= 100 && statusCode < 300);
+    }
     
-    public String getReferenceNumber() { return referenceNumber; }
-    public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
+    @Override
+    public String toString() {
+        if (isSuccess()) {
+            return "ClaimSubmissionResponse{" +
+                    "submissionId='" + submissionId + '\'' +
+                    ", acknowledgementNo='" + acknowledgementNo + '\'' +
+                    ", dateSubmitted='" + dateSubmitted + '\'' +
+                    '}';
+        } else {
+            return "ClaimSubmissionResponse{" +
+                    "statusCode=" + statusCode +
+                    ", message='" + message + '\'' +
+                    ", reasonPhrase='" + reasonPhrase + '\'' +
+                    '}';
+        }
+    }
 }
