@@ -31,6 +31,7 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<SubmittedClaim> getSubmittedClaim(String claimId) throws NhifApiException;
     CompletableFuture<List<ClaimSubmission>> getSubmittedClaims(String facilityCode, int claimYear, int claimMonth) throws NhifApiException;
     CompletableFuture<Receipt> getReceipt(String claimId) throws NhifApiException;
+    CompletableFuture<GetReceiptResponse> getReceipt(String facilityCode, int claimYear, int claimMonth, String folioNo) throws NhifApiException;
     CompletableFuture<ConfirmationResponse> sendConfirmationCode(String phoneNumber) throws NhifApiException;
     CompletableFuture<MonthlyClaimResponse> submitMonthlyClaim(MonthlyClaim request) throws NhifApiException;
     CompletableFuture<MonthlyClaimSubmissionResponse> submitMonthlyClaimSubmission(MonthlyClaimSubmission request) throws NhifApiException;

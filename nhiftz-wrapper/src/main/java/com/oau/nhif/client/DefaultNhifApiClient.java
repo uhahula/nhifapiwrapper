@@ -194,6 +194,13 @@ public class DefaultNhifApiClient implements NhifApiClient {
     }
 
     @Override
+    public CompletableFuture<GetReceiptResponse> getReceipt(String facilityCode, int claimYear, int claimMonth, String folioNo) throws NhifApiException {
+        String endpoint = String.format("/api/Claims/GetReceipt?facilityCode=%s&claimYear=%d&claimMonth=%d&folioNo=%s", 
+                                      facilityCode, claimYear, claimMonth, folioNo);
+        return get(endpoint, new TypeReference<GetReceiptResponse>() {});
+    }
+
+    @Override
     public CompletableFuture<ConfirmationResponse> sendConfirmationCode(String phoneNumber) throws NhifApiException {
         // TODO: Find correct endpoint from swagger or documentation
         throw new NhifApiException("sendConfirmationCode endpoint not yet implemented - endpoint not found in swagger", 501, "Not Implemented");

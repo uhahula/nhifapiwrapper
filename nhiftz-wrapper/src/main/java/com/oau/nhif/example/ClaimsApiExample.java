@@ -18,8 +18,9 @@ public class ClaimsApiExample {
         String authBaseUrl = "https://verification.nhif.or.tz";
         String serviceBaseUrl = "https://test.nhif.or.tz/ocs";
         String clientId = "11014";
-        String clientSecret = "your-client-secret";
-        String username = "your-username";
+
+        String clientSecret = "ntbzRGbrwwHj8Jwd7bbPsg==";
+        String username = "Mtundi";
 
         try (NhifApiClient client = NhifApiClientFactory.createClient(
                 authBaseUrl, serviceBaseUrl, clientId, clientSecret, username)) {
@@ -27,16 +28,19 @@ public class ClaimsApiExample {
             System.out.println("=== NHIF Claims API Examples ===\n");
 
             // Example 1: Test Claims API
-            testClaimsApi(client);
+            //testClaimsApi(client);
 
             // Example 2: Get Submitted Claims
             getSubmittedClaimsExample(client);
 
             // Example 3: Submit Folio
-            submitFolioExample(client);
+            //submitFolioExample(client);
 
             // Example 4: Submit Monthly Claim
-            submitMonthlyClaimExample(client);
+           // submitMonthlyClaimExample(client);
+
+            // Example 5: Get Receipt
+            getReceiptExample(client);
 
         } catch (NhifApiException | InterruptedException | ExecutionException e) {
             System.err.println("Error: " + e.getMessage());
@@ -72,7 +76,7 @@ public class ClaimsApiExample {
         
         String facilityCode = "11014";
         int claimYear = 2025;
-        int claimMonth = 8;
+        int claimMonth = 6;
         
         System.out.println("Parameters: facilityCode=" + facilityCode + ", claimYear=" + claimYear + ", claimMonth=" + claimMonth);
         
@@ -267,6 +271,62 @@ public class ClaimsApiExample {
                 })
                 .exceptionally(throwable -> {
                     System.err.println("✗ Failed to submit monthly claim: " + throwable.getMessage());
+                    return null;
+                })
+                .get();
+        
+        System.out.println();
+    }
+
+    /**
+     * Example 5: Get receipt for a specific claim
+     */
+    private static void getReceiptExample(NhifApiClient client) throws NhifApiException, InterruptedException, ExecutionException {
+        System.out.println("5. Getting receipt for a claim...");
+        System.out.println("Endpoint: GET /api/Claims/GetReceipt");
+        
+        String facilityCode = "11014";
+        int claimYear = 2025;
+        int claimMonth = 6;
+        String folioNo = "09";
+        
+        System.out.println("Parameters: facilityCode=" + facilityCode + 
+                          ", claimYear=" + claimYear + 
+                          ", claimMonth=" + claimMonth + 
+                          ", folioNo=" + folioNo);
+        
+        client.getReceipt(facilityCode, claimYear, claimMonth, folioNo)
+                .thenAccept(receipt -> {
+                    System.out.println("✓ Receipt retrieved successfully:");
+                    System.out.println("\n--- Receipt Details ---");
+                    System.out.println("Receipt No: " + receipt.getReceiptNo());
+                    System.out.println("Facility: " + receipt.getFacilityName() + " (" + receipt.getFacilityCode() + ")");
+                    System.out.println("Claim Period: " + receipt.getClaimYear() + "/" + receipt.getClaimMonth());
+                    System.out.println("Patient: " + receipt.getFirstName() + " " + receipt.getLastName());
+                    System.out.println("Gender: " + receipt.getGender());
+                    System.out.println("Card No: " + receipt.getCardNo());
+                    System.out.println("Telephone: " + receipt.getTelephoneNo());
+                    System.out.println("Patient File No: " + receipt.getPatientFileNo());
+                    System.out.println("Authorization No: " + receipt.getAuthorizationNo());
+                    System.out.println("Total Amount Claimed: " + receipt.getAmountClaimed());
+                    
+                    if (receipt.getReceiptItems() != null && !receipt.getReceiptItems().isEmpty()) {
+                        System.out.println("\n--- Receipt Items ---");
+                        for (GetReceiptResponse.ReceiptItem item : receipt.getReceiptItems()) {
+                            System.out.println("Item Code: " + item.getItemCode());
+                            System.out.println("Item Name: " + item.getItemName());
+                            System.out.println("Unit Price: " + item.getUnitPrice());
+                            System.out.println("Quantity: " + item.getItemQuantity());
+                            System.out.println("Amount Claimed: " + item.getAmountClaimed());
+                            if (item.getOtherDetails() != null) {
+                                System.out.println("Other Details: " + item.getOtherDetails());
+                            }
+                            System.out.println("---");
+                        }
+                    }
+                })
+                .exceptionally(throwable -> {
+                    System.err.println("✗ Failed to get receipt: " + throwable.getMessage());
                     return null;
                 })
                 .get();
