@@ -20,7 +20,7 @@ public class AttendanceApiExample {
     
     public static void main(String[] args) {
         // Initialize the client with your credentials
-        String authBaseUrl = "https://verification.nhif.or.tz";
+        String authBaseUrl = "https://test.verification.nhif.or.tz";
         String serviceBaseUrl = "https://test.nhif.or.tz/servicehub";  // Use HTTPS
         String clientId = "11014";
         String clientSecret = "ntbzRGbrwwHj8Jwd7bbPsg==";
@@ -169,7 +169,7 @@ public class AttendanceApiExample {
      */
     public static void mainWithExplicitSslConfig(String[] args) {
         // Initialize the client with SSL verification disabled
-        String authBaseUrl = "https://verification.nhif.or.tz";
+        String authBaseUrl = "https://test.verification.nhif.or.tz";
         String serviceBaseUrl = "https://test.nhif.or.tz/servicehub";  // Use HTTPS
         String clientId = "11014";
         String clientSecret = "ntbzRGbrwwHj8Jwd7bbPsg==";
