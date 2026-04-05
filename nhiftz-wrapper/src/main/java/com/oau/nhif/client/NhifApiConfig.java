@@ -40,7 +40,7 @@ public class NhifApiConfig {
     }
 
     public static class Builder {
-        private String authBaseUrl = "https://test.verification.nhif.or.tz";
+        private String authBaseUrl = "https://test.nhif.or.tz";
         private String serviceBaseUrl = "http://test.nhif.or.tz/servicehub";
         private String clientId;
         private String clientSecret;

@@ -21,7 +21,7 @@ public class PackagesApiExample {
     
     public static void main(String[] args) {
         // Initialize the client with your credentials
-        String authBaseUrl = "https://test.verification.nhif.or.tz";
+        String authBaseUrl = "https://test.nhif.or.tz";
         String serviceBaseUrl = "http://test.nhif.or.tz/ocs";
         String clientId = "11014";
         String clientSecret = "ntbzRGbrwwHj8Jwd7bbPsg==";

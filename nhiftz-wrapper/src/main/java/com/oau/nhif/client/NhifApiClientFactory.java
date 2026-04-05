@@ -10,7 +10,7 @@ public class NhifApiClientFactory {
     /**
      * Creates a new NHIF API client with the specified configuration
      * 
-     * @param authBaseUrl The base URL for authentication (e.g., "https://test.verification.nhif.or.tz")
+     * @param authBaseUrl The base URL for authentication (e.g., "https://test.nhif.or.tz")
      * @param serviceBaseUrl The base URL for service endpoints (e.g., "http://test.nhif.or.tz/servicehub")
      * @param clientId The client ID for authentication
      * @param clientSecret The client secret for authentication
@@ -34,7 +34,7 @@ public class NhifApiClientFactory {
     /**
      * Creates a new NHIF API client with the specified configuration and custom timeouts
      * 
-     * @param authBaseUrl The base URL for authentication (e.g., "https://test.verification.nhif.or.tz")
+     * @param authBaseUrl The base URL for authentication (e.g., "https://test.nhif.or.tz")
      * @param serviceBaseUrl The base URL for service endpoints (e.g., "http://test.nhif.or.tz/servicehub")
      * @param clientId The client ID for authentication
      * @param clientSecret The client secret for authentication
