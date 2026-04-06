@@ -14,7 +14,9 @@ public class NhifApiConfig {
     private final String clientId;
     private final String clientSecret;
     private final String authBaseUrl;
+    private final String tokenEndpoint;
     private final String serviceBaseUrl;
+    private final String ocsBaseUrl;
     private final String username;
     private final Duration connectionTimeout;
     private final Duration readTimeout;
@@ -24,7 +26,9 @@ public class NhifApiConfig {
 
     private NhifApiConfig( Builder builder) {
         this.authBaseUrl = builder.authBaseUrl;
+        this.tokenEndpoint = builder.tokenEndpoint;
         this.serviceBaseUrl = builder.serviceBaseUrl;
+        this.ocsBaseUrl = builder.ocsBaseUrl;
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
         this.username = builder.username;
@@ -41,7 +45,9 @@ public class NhifApiConfig {
 
     public static class Builder {
         private String authBaseUrl = "https://test.nhif.or.tz";
-        private String serviceBaseUrl = "http://test.nhif.or.tz/servicehub";
+        private String tokenEndpoint = "/authserver/connect/token";
+        private String serviceBaseUrl = "https://test.nhif.or.tz/servicehub";
+        private String ocsBaseUrl = "https://test.nhif.or.tz/ocs";
         private String clientId;
         private String clientSecret;
         private String username;
@@ -56,8 +62,18 @@ public class NhifApiConfig {
             return this;
         }
 
+        public Builder tokenEndpoint(String tokenEndpoint) {
+            this.tokenEndpoint = tokenEndpoint.startsWith("/") ? tokenEndpoint : "/" + tokenEndpoint;
+            return this;
+        }
+
         public Builder serviceBaseUrl(String baseUrl) {
             this.serviceBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+            return this;
+        }
+
+        public Builder ocsBaseUrl(String baseUrl) {
+            this.ocsBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
             return this;
         }
 
@@ -107,6 +123,7 @@ public class NhifApiConfig {
         public NhifApiConfig build() {
             Objects.requireNonNull(authBaseUrl, "Auth base URL is required");
             Objects.requireNonNull(serviceBaseUrl, "Service base URL is required");
+            Objects.requireNonNull(ocsBaseUrl, "OCS base URL is required");
             Objects.requireNonNull(clientId, "Client ID is required");
             Objects.requireNonNull(clientSecret, "Client secret is required");
             Objects.requireNonNull(username, "Username is required");

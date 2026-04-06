@@ -40,7 +40,7 @@ import org.apache.http.Header;
  * Default implementation of the NHIF API client.
  */
 public class DefaultNhifApiClient implements NhifApiClient {
-    private static final String TOKEN_ENDPOINT = "/authserver/connect/token";
+    private static final String DEFAULT_TOKEN_ENDPOINT = "/authserver/connect/token";
     private static final String TOKEN_SCOPE = "OnlineServices";
     private static final Logger logger = LoggerFactory.getLogger(DefaultNhifApiClient.class);
     
@@ -166,14 +166,16 @@ public class DefaultNhifApiClient implements NhifApiClient {
         return get("/api/History/GetMedicalHistory?cardNo=" + cardNumber + "&daysPast=60", MedicalHistory.class);
     }
 
+    // Claims APIs - routed to OCS (Online Claim Submission) service
+
     @Override
     public CompletableFuture<ClaimTest> testClaim() throws NhifApiException {
-        return get("/api/Claims/Test", ClaimTest.class);
+        return ocsGet("/api/Claims/Test", ClaimTest.class);
     }
 
     @Override
     public CompletableFuture<ClaimSubmissionResponse> submitFolio(FolioSubmissionRequest request) throws NhifApiException {
-        return post("/api/Claims/SubmitFolio", request, ClaimSubmissionResponse.class);
+        return ocsPost("/api/Claims/SubmitFolio", request, ClaimSubmissionResponse.class);
     }
 
     @Override
@@ -181,10 +183,10 @@ public class DefaultNhifApiClient implements NhifApiClient {
         // TODO: Find correct endpoint from swagger or documentation
         throw new NhifApiException("getSubmittedClaim endpoint not yet implemented - endpoint not found in swagger", 501, "Not Implemented");
     }
-    
+
     @Override
     public CompletableFuture<List<ClaimSubmission>> getSubmittedClaims(String facilityCode, int claimYear, int claimMonth) throws NhifApiException {
-        return get("/api/Claims/GetSubmittedClaims?facilityCode=" + facilityCode + "&claimYear=" + claimYear + "&claimMonth=" + claimMonth, new TypeReference<List<ClaimSubmission>>() {});
+        return ocsGet("/api/Claims/GetSubmittedClaims?facilityCode=" + facilityCode + "&claimYear=" + claimYear + "&claimMonth=" + claimMonth, new TypeReference<List<ClaimSubmission>>() {});
     }
 
     @Override
@@ -195,9 +197,9 @@ public class DefaultNhifApiClient implements NhifApiClient {
 
     @Override
     public CompletableFuture<GetReceiptResponse> getReceipt(String facilityCode, int claimYear, int claimMonth, String folioNo) throws NhifApiException {
-        String endpoint = String.format("/api/Claims/GetReceipt?facilityCode=%s&claimYear=%d&claimMonth=%d&folioNo=%s", 
+        String endpoint = String.format("/api/Claims/GetReceipt?facilityCode=%s&claimYear=%d&claimMonth=%d&folioNo=%s",
                                       facilityCode, claimYear, claimMonth, folioNo);
-        return get(endpoint, new TypeReference<GetReceiptResponse>() {});
+        return ocsGet(endpoint, new TypeReference<GetReceiptResponse>() {});
     }
 
     @Override
@@ -211,10 +213,10 @@ public class DefaultNhifApiClient implements NhifApiClient {
         // TODO: Find correct endpoint from swagger or documentation
         throw new NhifApiException("submitMonthlyClaim endpoint not yet implemented - endpoint not found in swagger", 501, "Not Implemented");
     }
-    
+
     @Override
     public CompletableFuture<MonthlyClaimSubmissionResponse> submitMonthlyClaimSubmission(MonthlyClaimSubmission request) throws NhifApiException {
-        return post("/api/Claims/SubmitMonthlyClaim", request, MonthlyClaimSubmissionResponse.class);
+        return ocsPost("/api/Claims/SubmitMonthlyClaim", request, MonthlyClaimSubmissionResponse.class);
     }
 
     // Reference Data APIs implementation
@@ -391,7 +393,8 @@ public class DefaultNhifApiClient implements NhifApiClient {
                 );
                 
                 // Create request
-                HttpPost request = new HttpPost(config.getAuthBaseUrl() + TOKEN_ENDPOINT);
+                String tokenEndpoint = config.getTokenEndpoint() != null ? config.getTokenEndpoint() : DEFAULT_TOKEN_ENDPOINT;
+                HttpPost request = new HttpPost(config.getAuthBaseUrl() + tokenEndpoint);
                 request.setHeader("Content-Type", "application/x-www-form-urlencoded");
                 request.setEntity(new StringEntity(formData, ContentType.APPLICATION_FORM_URLENCODED));
                 
@@ -400,7 +403,7 @@ public class DefaultNhifApiClient implements NhifApiClient {
                     .replaceAll("client_secret=[^&]*", "client_secret=[REDACTED]")
                     .replaceAll("username=[^&]*", "username=[REDACTED]");
                 String loggableRequest = String.format("POST %s %s", 
-                    config.getAuthBaseUrl() + TOKEN_ENDPOINT, 
+                    config.getAuthBaseUrl() + tokenEndpoint,
                     sanitizedFormData);
                     
                 logger.debug("{} - Token request: {}", requestId, loggableRequest);
@@ -527,37 +530,65 @@ public class DefaultNhifApiClient implements NhifApiClient {
         currentToken.set(null);
     }
 
-    // Helper methods for HTTP requests
-    
+    // Helper methods for HTTP requests (ServiceHub)
+
     private <T> CompletableFuture<T> get(String path, Class<T> responseType) throws NhifApiException {
+        return getFrom(config.getServiceBaseUrl(), path, responseType);
+    }
+
+    private <T> CompletableFuture<T> get(String path, TypeReference<T> typeReference) throws NhifApiException {
+        return getFrom(config.getServiceBaseUrl(), path, typeReference);
+    }
+
+    private <T, R> CompletableFuture<R> post(String path, T requestBody, Class<R> responseType) {
+        return postTo(config.getServiceBaseUrl(), path, requestBody, responseType);
+    }
+
+    // Helper methods for HTTP requests (OCS - Online Claim Submission)
+
+    private <T> CompletableFuture<T> ocsGet(String path, Class<T> responseType) throws NhifApiException {
+        return getFrom(config.getOcsBaseUrl(), path, responseType);
+    }
+
+    private <T> CompletableFuture<T> ocsGet(String path, TypeReference<T> typeReference) throws NhifApiException {
+        return getFrom(config.getOcsBaseUrl(), path, typeReference);
+    }
+
+    private <T, R> CompletableFuture<R> ocsPost(String path, T requestBody, Class<R> responseType) {
+        return postTo(config.getOcsBaseUrl(), path, requestBody, responseType);
+    }
+
+    // Base HTTP helper methods
+
+    private <T> CompletableFuture<T> getFrom(String baseUrl, String path, Class<T> responseType) {
         return withToken().thenCompose(token -> {
-            HttpGet request = new HttpGet(config.getServiceBaseUrl() + path);
+            HttpGet request = new HttpGet(baseUrl + path);
             request.setHeader("Authorization", token);
             request.setHeader("Accept", "application/json");
             return sendAsync(request, responseType);
         });
     }
-    
-    private <T> CompletableFuture<T> get(String path, TypeReference<T> typeReference) throws NhifApiException {
+
+    private <T> CompletableFuture<T> getFrom(String baseUrl, String path, TypeReference<T> typeReference) {
         return withToken().thenCompose(token -> {
-            HttpGet request = new HttpGet(config.getServiceBaseUrl() + path);
+            HttpGet request = new HttpGet(baseUrl + path);
             request.setHeader("Authorization", token);
             request.setHeader("Accept", "application/json");
             return sendAsync(request, typeReference);
         });
     }
-    
-    private <T, R> CompletableFuture<R> post(String path, T requestBody, Class<R> responseType) {
+
+    private <T, R> CompletableFuture<R> postTo(String baseUrl, String path, T requestBody, Class<R> responseType) {
         return withToken().thenCompose(token -> {
             try {
                 String body = objectMapper.writeValueAsString(requestBody);
-                
-                HttpPost request = new HttpPost(config.getServiceBaseUrl() + path);
+
+                HttpPost request = new HttpPost(baseUrl + path);
                 request.setHeader("Authorization", token);
                 request.setHeader("Content-Type", "application/json");
                 request.setHeader("Accept", "application/json");
                 request.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
-                
+
                 return sendAsync(request, responseType);
             } catch (Exception e) {
                 CompletableFuture<R> future = new CompletableFuture<>();
