@@ -149,6 +149,11 @@ public class DefaultNhifApiClient implements NhifApiClient {
     }
 
     @Override
+    public CompletableFuture<GenericResponse> generatePOCReferenceNo(PointOfCareReferenceRequest request) throws NhifApiException {
+        return post("/api/Verification/GeneratePOCReferenceNo", request, GenericResponse.class);
+    }
+
+    @Override
     public CompletableFuture<PatientDetails> getPatientDetails(String cardNumber) throws NhifApiException {
         return get("/api/Verification/GetPatientDetails?CardNo=" + cardNumber, PatientDetails.class);
     }
