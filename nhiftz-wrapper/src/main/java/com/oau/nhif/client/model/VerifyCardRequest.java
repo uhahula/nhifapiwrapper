@@ -10,10 +10,10 @@ public class VerifyCardRequest {
     private String cardNo;
     
     @JsonProperty("verifierID")
-    private String verifierID;
-    
+    private Integer verifierID;
+
     @JsonProperty("cardTypeID")
-    private String cardTypeID;
+    private Integer cardTypeID;
     
     @JsonProperty("biometricMethod")
     private String biometricMethod;
@@ -49,19 +49,19 @@ public class VerifyCardRequest {
         this.cardNo = cardNo;
     }
 
-    public String getVerifierID() {
+    public Integer getVerifierID() {
         return verifierID;
     }
 
-    public void setVerifierID(String verifierID) {
+    public void setVerifierID(Integer verifierID) {
         this.verifierID = verifierID;
     }
 
-    public String getCardTypeID() {
+    public Integer getCardTypeID() {
         return cardTypeID;
     }
 
-    public void setCardTypeID(String cardTypeID) {
+    public void setCardTypeID(Integer cardTypeID) {
         this.cardTypeID = cardTypeID;
     }
 

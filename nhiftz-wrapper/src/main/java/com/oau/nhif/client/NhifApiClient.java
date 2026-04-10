@@ -19,6 +19,7 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(String cardNumber, int visitTypeID) throws NhifApiException;
     CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(SimpleCardAuthorizationRequest request) throws NhifApiException;
     CompletableFuture<CardVerification> verifyCard(String cardNumber) throws NhifApiException;
+    CompletableFuture<CardVerification> verifyCard(VerifyCardRequest request) throws NhifApiException;
     CompletableFuture<GenericResponse> generatePOCReferenceNo(PointOfCareReferenceRequest request) throws NhifApiException;
     CompletableFuture<PatientDetails> getPatientDetails(String cardNumber) throws NhifApiException;
 
