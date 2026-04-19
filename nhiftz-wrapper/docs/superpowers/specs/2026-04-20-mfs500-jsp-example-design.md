@@ -96,12 +96,15 @@ All JSON. Bound to `127.0.0.1` only. CORS headers:
 | Method | Path        | Purpose |
 |--------|-------------|---------|
 | `GET`  | `/status`   | `{ready, deviceModel, serial, sdkVersion}` or `{ready:false, reason}` |
-| `POST` | `/capture`  | body `{finger, timeoutMs, minQuality, templateFormat}`; returns `{template, quality, nfiq, fpCode}` or `{error}` |
+| `POST` | `/capture`  | body `{timeoutMs, minQuality, templateFormat}`; returns `{template, quality, nfiq}` or `{error}` |
 | `POST` | `/shutdown` | graceful exit (optional, for installers) |
 
-`finger` values match NHIF's `fpCode`: `R_THUMB`, `R_INDEX`, `R_MIDDLE`,
-`R_RING`, `R_LITTLE`, `L_THUMB`, `L_INDEX`, `L_MIDDLE`, `L_RING`,
-`L_LITTLE`. Mapped internally to `com.mantra.morfinauth.enums.FingerPostion`.
+The Mantra SDK does not know which finger is being scanned — it only
+captures "a fingerprint." The receptionist picks the finger from the JSP
+form; that choice is sent to NHIF as `fpCode` alongside the template, but
+never to the agent. NHIF `fpCode` values:
+`R_THUMB`, `R_INDEX`, `R_MIDDLE`, `R_RING`, `R_LITTLE`,
+`L_THUMB`, `L_INDEX`, `L_MIDDLE`, `L_RING`, `L_LITTLE`.
 
 `templateFormat` values: `ANSI_V378` (default), `FMR_V2005`, `FMR_V2011`.
 NHIF accepts base64 of any of these; `ANSI_V378` is the safe default.
@@ -112,26 +115,33 @@ Error codes returned in the `error` field:
 ### Classes
 
 - `Main` — parses args, starts `HttpServer`, registers shutdown hook.
-- `MorfinDevice` — thin wrapper around `MorfinAuth`. Methods:
-  `init()`, `captureAnsiTemplate(FingerPostion, int timeoutMs, int minQuality)`,
-  `status()`, `close()`. Single in-flight capture enforced via `ReentrantLock`.
+- `MorfinDevice` — interface with two implementations. The real
+  `MorfinDeviceImpl` wraps `MorfinAuth` (constructed with a no-op
+  `MorfinAuth_Callback`), targets `DeviceModel.MFS500`, enforces a single
+  in-flight capture via `ReentrantLock`. A `FakeMorfinDevice` returns
+  canned responses, used by handler unit tests. Interface methods:
+  `Status status()`, `CaptureResult capture(int timeoutMs, int minQuality, TemplateFormat format)`, `close()`.
 - `StatusHandler`, `CaptureHandler`, `ShutdownHandler` — `HttpHandler`
-  implementations; each ~30 lines.
+  implementations; each ~30 lines, depend only on the `MorfinDevice`
+  interface.
 - `Json` — 40-line hand-rolled JSON writer (no Jackson dep to keep the
   shaded JAR small).
-- `FingerCodes` — map NHIF string codes ↔ `FingerPostion` enum.
+- `FingerCodes` — NHIF `fpCode` constants and validation helper
+  (browser-side concept only; not used for Mantra SDK calls).
 
 ### Lifecycle
 
-- On startup: HTTP server binds immediately. `MorfinDevice.init()` runs on
-  a background thread and retries `MorfinAuth.Init(DeviceModel.Auto, "", info)`
-  with 2-second backoff until it succeeds. `/status` reflects current state
-  and returns `{ready:false, reason: "DEVICE_NOT_CONNECTED"}` until init
-  succeeds.
-- Per capture: acquire lock, `AutoCapture(minQuality, timeoutMs, q, nfiq)`,
-  `GetTemplate(buf, len, TemplateFormat.ANSI_V378)`, base64-encode, release
-  lock.
-- On JVM shutdown hook: `Uninit()`.
+- On startup: HTTP server binds immediately. `MorfinDeviceImpl` construction
+  runs on a background thread: `new MorfinAuth(noOpCallback)`, then loops
+  calling `IsDeviceConnected(DeviceModel.MFS500)` and `Init(DeviceModel.MFS500, null, info)`
+  with 2-second backoff until init returns 0. `/status` reflects current
+  state and returns `{ready:false, reason: "DEVICE_NOT_CONNECTED"}` until
+  init succeeds.
+- Per capture: acquire lock, `AutoCapture(minQuality, timeoutMs, quality[], nfiq[])`,
+  allocate `new byte[deviceInfo.Width * deviceInfo.Height]`, call
+  `GetTemplate(buf, len[], format)`, copy to `len[0]` bytes, base64-encode,
+  release lock.
+- On JVM shutdown hook: `StopCapture()` then `Uninit()`.
 
 ### Logging
 
