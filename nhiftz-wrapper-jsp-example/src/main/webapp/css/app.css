@@ -1,0 +1,24 @@
+* { box-sizing: border-box; }
+body { font: 16px/1.4 system-ui, sans-serif; background: #f5f6f8; margin: 0; padding: 2rem; }
+.card { max-width: 520px; margin: 0 auto; background: #fff; padding: 1.5rem;
+        border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+h1 { margin-top: 0; font-size: 1.25rem; }
+label { display: block; margin-bottom: .9rem; }
+label input, label select { display: block; width: 100%; margin-top: .25rem;
+        padding: .5rem .6rem; font: inherit; border: 1px solid #ccd; border-radius: 4px; }
+button, .button { display: inline-block; background: #2b6cb0; color: #fff;
+        padding: .6rem 1rem; border: 0; border-radius: 4px; font: inherit;
+        text-decoration: none; cursor: pointer; }
+button:disabled { background: #9bb3ce; cursor: not-allowed; }
+.status-banner { padding: .5rem .75rem; margin-bottom: 1rem; border-radius: 4px; font-size: .9rem; }
+.status-banner.loading { background: #fff4cc; color: #6b4b00; }
+.status-banner.ready   { background: #d4efd4; color: #16541c; }
+.status-banner.error   { background: #fbdcdc; color: #7a1d1d; }
+.banner { padding: 1rem; font-weight: bold; color: #fff; text-align: center;
+        border-radius: 4px; margin-bottom: 1rem; }
+.banner.approved { background: #2b8a3e; }
+.banner.rejected { background: #b91c1c; }
+.details { display: grid; grid-template-columns: auto 1fr; column-gap: 1rem; row-gap: .25rem; }
+.details dt { color: #555; }
+.details dd { margin: 0; }
+pre { background: #eef; padding: .5rem; overflow: auto; font-size: .8rem; }

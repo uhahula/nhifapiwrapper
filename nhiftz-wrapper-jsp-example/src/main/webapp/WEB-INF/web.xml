@@ -7,13 +7,9 @@
 
     <display-name>NHIF TZ JSP Example</display-name>
 
-    <welcome-file-list>
-        <welcome-file>index.jsp</welcome-file>
-    </welcome-file-list>
-
     <error-page>
         <exception-type>java.lang.Throwable</exception-type>
-        <location>/error.jsp</location>
+        <location>/WEB-INF/jsp/error.jsp</location>
     </error-page>
 
     <context-param>
