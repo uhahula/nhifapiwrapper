@@ -1,18 +1,35 @@
 # NHIF TZ Wrapper - JSP Example
 
 Reception-desk JSP webapp that authorizes NHIF cards using a fingerprint
-captured on the client PC via the Morfin Agent sibling module.
+captured on the client PC via Mantra's MidFingerAuth Client Service.
 
 ## Architecture
 
 ```
 Browser  --->  https://nhif.hospital.local/nhiftz-wrapper-jsp-example/
    |
-   +-- fetch -->  http://127.0.0.1:8765  (local Morfin agent on the same PC)
+   +-- fetch -->  https://localhost:8010/midfingerauth  (Mantra MidFingerAuth
+                                                         Client Service on the
+                                                         receptionist's PC)
 ```
 
-The WAR is stateless. The local agent must be running on the
-receptionist's PC; see `../nhiftz-wrapper-morfin-agent/README.md`.
+The WAR is stateless. Each receptionist PC must have Mantra's MidFingerAuth
+Client Service installed and running; `capture.js` calls its JSON-over-HTTPS
+endpoints directly from the browser. Reference page shipped by Mantra:
+`C:\Program Files\Mantra\MidFingerAuth\MidFingerAuthClientService\test\MIDFingerAuthClientServiceTest.htm`.
+
+### Client-side prerequisites
+
+1. Install *MidFingerAuth Client Service* (ships with the MFS100/MFS500 driver).
+2. Run `ConfigMantraMIDFingerAuthClientService.exe` and add this webapp's
+   origin (e.g. `https://nhif.hospital.local`) to the CORS whitelist.
+3. Trust the service's self-signed cert for `https://localhost:8010` in the
+   receptionist's browser; otherwise the fetch calls fail silently.
+
+The capture flow used by `capture.js`:
+`connecteddevicelist` -> `initdevice` -> `capture` -> `gettemplate`
+(format `ANSI_V378`) -> set `imageData` -> submit form ->
+`uninitdevice` on page unload.
 
 ## Configuration (environment variables)
 
