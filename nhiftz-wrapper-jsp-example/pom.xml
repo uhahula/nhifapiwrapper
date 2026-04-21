@@ -7,12 +7,12 @@
 
     <groupId>com.oau.nhif</groupId>
     <artifactId>nhiftz-wrapper-jsp-example</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>war</packaging>
 
     <name>NHIF TZ Wrapper - JSP Example</name>
     <description>Reception-desk JSP webapp that authorizes NHIF cards
-      via a fingerprint captured on the local Morfin agent.</description>
+      via a fingerprint captured by Mantra's MidFingerAuth Client Service.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
