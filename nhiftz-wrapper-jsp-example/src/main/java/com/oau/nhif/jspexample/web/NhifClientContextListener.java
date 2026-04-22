@@ -21,9 +21,16 @@ public class NhifClientContextListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent ev) {
         ServletContext ctx = ev.getServletContext();
-        Optional<NhifConfig> maybeConfig = NhifConfig.fromEnv(System::getenv);
+        // Read each key from OS env var first, then fall back to a JVM system
+        // property with the same name. This lets GlassFish admins use
+        //   asadmin create-jvm-options "-DNHIF_AUTH_URL=..."
+        // instead of editing machine-level environment variables.
+        Optional<NhifConfig> maybeConfig = NhifConfig.fromEnv(k -> {
+            String v = System.getenv(k);
+            return (v != null && !v.isEmpty()) ? v : System.getProperty(k);
+        });
         if (maybeConfig.isEmpty()) {
-            LOG.severe("NHIF_* environment variables not set - /health will report unconfigured");
+            LOG.severe("NHIF_* not set (env vars or -D system properties) - /health will report unconfigured");
             return;
         }
         NhifConfig cfg = maybeConfig.get();

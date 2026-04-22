@@ -6,16 +6,40 @@ captured on the client PC via Mantra's MidFingerAuth Client Service.
 ## Architecture
 
 ```
-Browser  --->  https://nhif.hospital.local/nhiftz-wrapper-jsp-example/
-   |
-   +-- fetch -->  https://localhost:8010/midfingerauth  (Mantra MidFingerAuth
-                                                         Client Service on the
-                                                         receptionist's PC)
+  [Receptionist PC]                        [Remote CentOS/Windows server]
+  +-------------------+                    +-----------------------------+
+  |  Browser          |  (1) GET /         |  Tomcat / GlassFish         |
+  |  (on nhif.svc/*)  | ------------------>|    nhiftz-wrapper-jsp-example|
+  |                   |                    |      IndexServlet -> index.jsp|
+  |                   |  (5) POST /authorize (cardNo, fpCode, imageData)  |
+  |                   | ------------------>|      AuthorizeServlet       |
+  |                   |                    |        |                    |
+  |                   |                    |        | (6) NhifApiClient  |
+  |                   |                    |        v                    |
+  |  capture.js       |                    |  +--------------------+     |
+  |    (2) fetch      |                    |  | test.nhif.or.tz     |     |
+  |    localhost:8010 |                    |  | (Auth + ServiceHub) |     |
+  |    /midfingerauth |                    |  +--------------------+     |
+  |        |          |                    |        |                    |
+  |        v (3) device driver             |        | (7) JSON response   |
+  |  +--------------+ |                    |        v                    |
+  |  | MFS100/500   | |                    |      result.jsp            |
+  |  +--------------+ |                    |                             |
+  |    (4) ANSI_V378  |                    +-----------------------------+
+  +-------------------+
 ```
 
-The WAR is stateless. Each receptionist PC must have Mantra's MidFingerAuth
-Client Service installed and running; `capture.js` calls its JSON-over-HTTPS
-endpoints directly from the browser. Reference page shipped by Mantra:
+Flow:
+
+1. Receptionist opens the webapp hosted on the hospital server.
+2. `capture.js` (running in the browser) calls `https://localhost:8010/midfingerauth/*` on the *receptionist's own PC*. `localhost` resolves to the PC the browser is running on, not the webapp server, so the browser talks to the Mantra client service installed locally.
+3. Mantra's service drives the USB fingerprint reader (MFS100/MFS500).
+4. Mantra returns a base64 ANSI_V378 template; `capture.js` stores it in the hidden `imageData` form field.
+5. The browser submits the form (cardNo + fpCode + imageData + visitTypeID ...) to `POST /authorize` **on the server**.
+6. `AuthorizeServlet` uses `NhifApiClient` (from the `nhiftz-wrapper` library) to call the NHIF Auth + ServiceHub APIs over HTTPS.
+7. The server renders `result.jsp` with the NHIF authorization response.
+
+The WAR itself is stateless. Each receptionist PC must have Mantra's MidFingerAuth Client Service installed and running; the webapp server never talks to the scanner. Reference test page shipped by Mantra:
 `C:\Program Files\Mantra\MidFingerAuth\MidFingerAuthClientService\test\MIDFingerAuthClientServiceTest.htm`.
 
 ### Client-side prerequisites
@@ -31,19 +55,22 @@ The capture flow used by `capture.js`:
 (format `ANSI_V378`) -> set `imageData` -> submit form ->
 `uninitdevice` on page unload.
 
-## Configuration (environment variables)
+## Configuration
 
-Set on the Tomcat host (e.g. in `/etc/sysconfig/tomcat` on CentOS):
+The webapp reads five keys on startup. For each key it first checks the OS
+environment variable, then falls back to a JVM system property with the same
+name. That means you can pick whichever fits your platform:
 
-```bash
-NHIF_AUTH_URL=https://test.nhif.or.tz
-NHIF_SERVICE_URL=https://test.nhif.or.tz/servicehub
-NHIF_CLIENT_ID=11014
-NHIF_CLIENT_SECRET=ntbzRGbrwwHj8Jwd7bbPsg==
-NHIF_USERNAME=Mtundi
-```
+| Key                   | Required | Example                                  |
+| --------------------- | -------- | ---------------------------------------- |
+| `NHIF_AUTH_URL`       | yes      | `https://test.nhif.or.tz`                |
+| `NHIF_SERVICE_URL`    | yes      | `https://test.nhif.or.tz/servicehub`     |
+| `NHIF_CLIENT_ID`      | yes      | `11014`                                  |
+| `NHIF_CLIENT_SECRET`  | yes      | `...`                                    |
+| `NHIF_USERNAME`       | yes      | `Mtundi`                                 |
 
-Restart Tomcat after changing them.
+If any key is missing, `/health` returns `503 {"wrapperConfigured":false,...}`
+and `POST /authorize` returns `503 Server not configured - check NHIF_* env vars`.
 
 ## Build
 
@@ -55,12 +82,57 @@ mvn package
 
 ## Deploy
 
-1. Ensure `nhiftz-wrapper-1.4.0.jar` is installed to the same Maven repo
-   the WAR was built against. Tomcat needs no extra JARs - all deps are in
-   `WEB-INF/lib/`.
-2. Copy the WAR to `$CATALINA_HOME/webapps/`.
-3. Tomcat 8.5.87 auto-expands it. Browse to
-   `https://your-server/nhiftz-wrapper-jsp-example/`.
+Two helper scripts are in `deploy/`. Both are idempotent and safe to re-run.
+
+### GlassFish 7 (Windows dev/test box)
+
+Uses `asadmin create-jvm-options -DNHIF_*=...` so the config lives inside
+`domain.xml`; no machine-wide environment variables required.
+
+```powershell
+cd nhiftz-wrapper-jsp-example
+.\deploy\deploy-glassfish.ps1 `
+  -War          .\target\nhiftz-wrapper-jsp-example.war `
+  -AuthUrl      'https://test.nhif.or.tz' `
+  -ServiceUrl   'https://test.nhif.or.tz/servicehub' `
+  -ClientId     '11014' `
+  -ClientSecret 'ntbzRGbrwwHj8Jwd7bbPsg==' `
+  -Username     'Mtundi' `
+  -HealthUrl    'http://localhost:8080/nhiftz-wrapper-jsp-example/health'
+```
+
+### Tomcat on CentOS / RHEL (production)
+
+Reads the five values from a local env-file, writes them into
+`$CATALINA_BASE/bin/setenv.sh` between managed markers, redeploys the WAR,
+and restarts the `tomcat` systemd service.
+
+```bash
+# 1) On the CentOS box, copy the template and fill it in:
+cp deploy/nhif.env.example /etc/nhif/nhif.prod.env
+chmod 600 /etc/nhif/nhif.prod.env
+$EDITOR /etc/nhif/nhif.prod.env
+
+# 2) Deploy:
+sudo CONFIG_FILE=/etc/nhif/nhif.prod.env \
+     deploy/deploy-tomcat-centos.sh /path/to/nhiftz-wrapper-jsp-example.war
+```
+
+Environment overrides the script accepts:
+`CATALINA_HOME` (default `/usr/share/tomcat`),
+`CATALINA_BASE`,
+`SERVICE_NAME` (default `tomcat`),
+`CONTEXT_NAME` (default `nhiftz-wrapper-jsp-example`).
+
+After the script exits cleanly, `/nhiftz-wrapper-jsp-example/health` returns
+`200 {"wrapperConfigured":true,...}`.
+
+### What the server calls
+
+Once `/authorize` is hit, `AuthorizeServlet` uses `NhifApiClient` to POST the
+fingerprint template to NHIF's ServiceHub (`/api/verification/authorize-card`).
+The server does not need any of the Mantra binaries installed - those live on
+the receptionist's PC.
 
 ## Endpoints
 
