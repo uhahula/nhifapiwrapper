@@ -72,6 +72,35 @@ name. That means you can pick whichever fits your platform:
 If any key is missing, `/health` returns `503 {"wrapperConfigured":false,...}`
 and `POST /authorize` returns `503 Server not configured - check NHIF_* env vars`.
 
+## Quick start (NetBeans / local dev on Windows)
+
+Easiest path — no Admin Console, no JVM options, no `asadmin`:
+
+1. Run the one-shot setup helper **once**. Pick either:
+
+   ```bat
+   REM Command Prompt:
+   deploy\setup-dev-env.bat
+   ```
+
+   ```powershell
+   # PowerShell:
+   .\deploy\setup-dev-env.ps1
+   ```
+
+   Both persist the five `NHIF_*` values at **User** scope, so every process
+   you launch afterwards inherits them.
+
+2. Close NetBeans (if it's open) so it picks up the new environment.
+3. Reopen NetBeans -> open `nhiftz-wrapper-jsp-example` as a Maven project.
+4. Press **F6** (Run). NetBeans builds, deploys to the bundled GlassFish,
+   and opens the browser.
+5. Sanity check: `http://localhost:8080/nhiftz-wrapper-jsp-example/health`
+   returns `{"wrapperConfigured":true,...}`.
+
+Re-run the helper any time a credential changes; defaults target the
+NHIF test environment.
+
 ## Build
 
 ```bash
