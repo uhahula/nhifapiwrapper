@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tomcat per-context override for the NHIF JSP webapp.
+
+  Drop this file at:
+    $CATALINA_BASE/conf/Catalina/localhost/<context-name>.xml
+
+  where <context-name> matches the deployed WAR's context root
+  (e.g. demo.xml for http://host/demo/*, or
+  nhiftz-wrapper-jsp-example.xml for the default context).
+
+  Tomcat reads this file on startup BEFORE the WAR is unpacked.
+  Changes take effect on restart (or on touch of the file, if
+  autoDeploy=true).
+
+  Keeps credentials OUT of the WAR itself so you can ship the same
+  WAR artifact to multiple environments.
+-->
+<Context>
+    <Parameter name="NHIF_AUTH_URL"      value="https://test.nhif.or.tz"             override="false"/>
+    <Parameter name="NHIF_SERVICE_URL"   value="https://test.nhif.or.tz/servicehub"  override="false"/>
+    <Parameter name="NHIF_CLIENT_ID"     value="11014"                               override="false"/>
+    <Parameter name="NHIF_CLIENT_SECRET" value="CHANGE_ME"                           override="false"/>
+    <Parameter name="NHIF_USERNAME"      value="Mtundi"                              override="false"/>
+</Context>
