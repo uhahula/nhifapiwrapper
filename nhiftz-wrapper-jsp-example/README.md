@@ -72,34 +72,59 @@ name. That means you can pick whichever fits your platform:
 If any key is missing, `/health` returns `503 {"wrapperConfigured":false,...}`
 and `POST /authorize` returns `503 Server not configured - check NHIF_* env vars`.
 
-## Quick start (NetBeans / local dev on Windows)
+## Quick start (local dev on Windows)
 
-Easiest path — no Admin Console, no JVM options, no `asadmin`:
+Pick the helper that matches how you run the webapp locally.
 
-1. Run the one-shot setup helper **once**. Pick either:
+### NetBeans + bundled GlassFish (or any shell-launched server)
 
-   ```bat
-   REM Command Prompt:
-   deploy\setup-dev-env.bat
-   ```
+User-level env vars work here — NetBeans is launched by you, so it inherits them.
 
-   ```powershell
-   # PowerShell:
-   .\deploy\setup-dev-env.ps1
-   ```
+```bat
+REM Command Prompt:
+deploy\setup-dev-env.bat
+```
 
-   Both persist the five `NHIF_*` values at **User** scope, so every process
-   you launch afterwards inherits them.
+```powershell
+# PowerShell:
+.\deploy\setup-dev-env.ps1
+```
 
-2. Close NetBeans (if it's open) so it picks up the new environment.
-3. Reopen NetBeans -> open `nhiftz-wrapper-jsp-example` as a Maven project.
-4. Press **F6** (Run). NetBeans builds, deploys to the bundled GlassFish,
-   and opens the browser.
-5. Sanity check: `http://localhost:8080/nhiftz-wrapper-jsp-example/health`
-   returns `{"wrapperConfigured":true,...}`.
+Close NetBeans, reopen it, press **F6**.
 
-Re-run the helper any time a credential changes; defaults target the
-NHIF test environment.
+### Standalone Tomcat on Windows (including Windows service installs)
+
+User-level env vars are **not** reliable here — the Tomcat service runs under
+`LocalSystem` and won't inherit your per-user environment. Write Tomcat's own
+`setenv.bat` instead (idempotent, preserves other content, restart optional):
+
+```powershell
+.\deploy\setup-tomcat-win.ps1 `
+  -CatalinaHome 'C:\apache-tomcat-8.5.87' `
+  -Restart
+```
+
+Override any value via parameters (`-AuthUrl`, `-ClientSecret`, etc.).
+If your service isn't named `Tomcat8`, pass `-ServiceName <name>`.
+
+### Verify
+
+Hit `/health` on whatever context you deployed under:
+
+```
+http://localhost:8080/nhiftz-wrapper-jsp-example/health
+http://localhost:8080/demo/health
+```
+
+Expected: `{"wrapperConfigured":true,...}`. If you still get
+`503 Server not configured - check NHIF_* env vars`, the Tomcat process didn't
+pick up the values - make sure you actually restarted it after running the helper.
+
+### Do the values persist?
+
+Yes. `setup-dev-env.*` writes to the Windows registry (User scope), and
+`setup-tomcat-win.ps1` writes `setenv.bat` to disk. Both survive OS reboots
+and Tomcat restarts. Re-run the helper any time credentials change.
 
 ## Build
 
