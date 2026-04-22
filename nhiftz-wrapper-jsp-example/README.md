@@ -57,9 +57,15 @@ The capture flow used by `capture.js`:
 
 ## Configuration
 
-The webapp reads five keys on startup. For each key it first checks the OS
-environment variable, then falls back to a JVM system property with the same
-name. That means you can pick whichever fits your platform:
+The webapp reads five keys on startup. For each key it checks these sources
+in order and uses the first non-empty value:
+
+1. **OS environment variable** — e.g. `NHIF_AUTH_URL=...`
+2. **JVM system property** — e.g. `-DNHIF_AUTH_URL=...`
+3. **Servlet context parameter** — `<context-param>` in `WEB-INF/web.xml`,
+   or `<Parameter>` inside a Tomcat `<Context>` override file
+
+That gives you flexibility to pick whatever fits your platform or policy:
 
 | Key                   | Required | Example                                  |
 | --------------------- | -------- | ---------------------------------------- |
@@ -71,6 +77,54 @@ name. That means you can pick whichever fits your platform:
 
 If any key is missing, `/health` returns `503 {"wrapperConfigured":false,...}`
 and `POST /authorize` returns `503 Server not configured - check NHIF_* env vars`.
+
+### Configuring via the webapp (no server/env editing)
+
+If you can't (or don't want to) touch the server's environment, drop the
+values directly inside the webapp.
+
+**Option 1 — bundled in the WAR (`WEB-INF/web.xml`)**
+
+Add to `src/main/webapp/WEB-INF/web.xml` and rebuild:
+
+```xml
+<context-param>
+    <param-name>NHIF_AUTH_URL</param-name>
+    <param-value>https://test.nhif.or.tz</param-value>
+</context-param>
+<context-param>
+    <param-name>NHIF_SERVICE_URL</param-name>
+    <param-value>https://test.nhif.or.tz/servicehub</param-value>
+</context-param>
+<context-param>
+    <param-name>NHIF_CLIENT_ID</param-name>
+    <param-value>11014</param-value>
+</context-param>
+<context-param>
+    <param-name>NHIF_CLIENT_SECRET</param-name>
+    <param-value>...</param-value>
+</context-param>
+<context-param>
+    <param-name>NHIF_USERNAME</param-name>
+    <param-value>Mtundi</param-value>
+</context-param>
+```
+
+Portable across Tomcat, GlassFish, Jetty. Downside: credentials end up
+inside the WAR, so the WAR becomes environment-specific (don't commit
+real secrets).
+
+**Option 2 — Tomcat per-context override (keeps creds out of the WAR)**
+
+Copy `deploy/tomcat-context.xml.example` to:
+
+```
+$CATALINA_BASE/conf/Catalina/localhost/<context-name>.xml
+```
+
+where `<context-name>` matches your deployed context (e.g. `demo.xml` for
+`http://host/demo/*`). Edit the five values, restart Tomcat. Same WAR
+can now be deployed to dev / staging / prod with different configs.
 
 ## Quick start (local dev on Windows)
 
