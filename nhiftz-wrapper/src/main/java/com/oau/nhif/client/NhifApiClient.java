@@ -20,6 +20,13 @@ public interface NhifApiClient extends AutoCloseable {
     CompletableFuture<CardAuthorizationResponse> authorizeCardSimple(SimpleCardAuthorizationRequest request) throws NhifApiException;
     CompletableFuture<CardVerification> verifyCard(String cardNumber) throws NhifApiException;
     CompletableFuture<CardVerification> verifyCard(VerifyCardRequest request) throws NhifApiException;
+
+    // VerifyCard now doubles as the authorize endpoint. The response shape
+    // matches CardAuthorizationResponse (full member + authorization fields)
+    // rather than the slim CardVerification used by the older verify-only flow.
+    CompletableFuture<CardAuthorizationResponse> verifyCardForAuthorization(VerifyCardRequest request) throws NhifApiException;
+    CompletableFuture<List<CardVerifier>> getCardVerifiers() throws NhifApiException;
+
     CompletableFuture<GenericResponse> generatePOCReferenceNo(PointOfCareReferenceRequest request) throws NhifApiException;
     CompletableFuture<PatientDetails> getPatientDetails(String cardNumber) throws NhifApiException;
 

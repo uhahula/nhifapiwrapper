@@ -18,6 +18,21 @@
             <input type="text" name="cardNo" required pattern="[0-9]+" placeholder="e.g. 101502314766">
         </label>
 
+        <label>Verifier
+            <select name="verifierID">
+                <c:choose>
+                    <c:when test="${not empty verifiers}">
+                        <c:forEach var="v" items="${verifiers}">
+                            <option value="${v.verifierID}"><c:out value="${v.verifierName}"/></option>
+                        </c:forEach>
+                    </c:when>
+                    <c:otherwise>
+                        <option value="">(none configured)</option>
+                    </c:otherwise>
+                </c:choose>
+            </select>
+        </label>
+
         <label>Finger
             <select name="fpCode" required>
                 <c:forEach var="f" items="${fpCodes}">
@@ -41,14 +56,24 @@
             </select>
         </label>
 
+        <label>Mobile number (optional)
+            <input type="text" name="mobileNo" pattern="[0-9+]*">
+        </label>
+
         <label>Referral number (optional)
             <input type="text" name="referralNo">
+        </label>
+
+        <label>WCF notification number (optional)
+            <input type="text" name="wcfNotificationNo">
         </label>
 
         <label>Remarks
             <input type="text" name="remarks" value="Biometric verified visit">
         </label>
 
+        <input type="hidden" name="cardTypeID" value="${defaultCardTypeID}">
+        <input type="hidden" name="facilityCode" value="${facilityCode}">
         <input type="hidden" name="imageData" id="imageData">
 
         <button type="button" id="capture-btn" disabled>Capture &amp; Authorize</button>
