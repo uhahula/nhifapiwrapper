@@ -38,6 +38,15 @@ JARs go to `target/`:
 
 ## Key Notes
 - `VerifyCardRequest.verifierID` and `cardTypeID` must be Integer (not String)
-- VerifyCard endpoint (`/api/Verification/VerifyCard`) has a server-side bug (NullReferenceException)
-- Use AuthorizeCard (`/api/Verification/AuthorizeCard`) for biometric verification instead
+- VerifyCard (`/api/Verification/VerifyCard`) is now NHIF's blessed authorize path.
+  Use `client.verifyCardForAuthorization(VerifyCardRequest)` — returns the same
+  `CardAuthorizationResponse` shape as AuthorizeCard. The older
+  `verifyCard(...) -> CardVerification` overload is kept for backward compat.
+  (NHIF previously had a NullReferenceException on this endpoint; fixed
+  per Dickson 2026-05-09.)
+- Card verifier list comes from `/api/Verification/GetCardVerifiers`
+  (`client.getCardVerifiers()`). Use it to populate verifier dropdowns.
+- NHIF wants the BIOMETRIC IMAGE in `imageData`, not the fingerprint
+  template. WSQ is recommended; PNG is allowed but not natively produced
+  by the Mantra MFS500 SDK (would require a RAW->PNG conversion step).
 - Token is cached to `~/.nhif_token.json` and auto-refreshed

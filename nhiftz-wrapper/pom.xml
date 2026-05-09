@@ -6,7 +6,7 @@
     
     <groupId>com.oau.nhifapi</groupId>
     <artifactId>nhiftz-wrapper</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
     <packaging>jar</packaging>
     
     <name>NHIF API Wrapper</name>

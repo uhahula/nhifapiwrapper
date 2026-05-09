@@ -2,9 +2,12 @@
   const AGENT_BASE = "https://localhost:8010/midfingerauth";
   const QUALITY = 60;
   const TIMEOUT_SECONDS = 15;
-  // Wire values after Mantra's (UI index - 1) adjustment:
-  //   0 = FMR_V2005, 1 = FMR_V2011, 2 = ANSI_V378.
-  const TEMPLATE_FORMAT_ANSI_V378 = 2;
+  // Mantra image-format index after the (UI index - 1) shift used in
+  // /gettemplate's TmpFormat: BMP=0, JPEG2000=1, WSQ=2, RAW=3, then
+  // FIR_V2005, FIR_V2011, FIR_WSQ_V2005, FIR_WSQ_V2011, FIR_JPEG2000_V2005,
+  // FIR_JPEG2000_V2011. NHIF wants WSQ.
+  const IMAGE_FORMAT_WSQ = 2;
+  const WSQ_COMPRESSION_RATIO = 75;
 
   const statusEl  = document.getElementById("scanner-status");
   const button    = document.getElementById("capture-btn");
@@ -68,9 +71,13 @@
     return data;
   }
 
-  async function getTemplate(tmpFormat) {
-    const data = await post("gettemplate", { TmpFormat: tmpFormat });
-    if (!isOk(data)) throw new Error(describe(data, "GetTemplate failed"));
+  // NHIF expects the BIOMETRIC IMAGE (WSQ recommended), not the template.
+  async function getImage(imgFormat, compressionRatio) {
+    const data = await post("getimage", {
+      ImgFormat: imgFormat,
+      CompressionRatio: compressionRatio
+    });
+    if (!isOk(data)) throw new Error(describe(data, "GetImage failed"));
     return data.ImgData;
   }
 
@@ -100,8 +107,8 @@
         initialized = true;
       }
       const cap = await captureFinger();
-      const template = await getTemplate(TEMPLATE_FORMAT_ANSI_V378);
-      imageData.value = template;
+      const wsqImage = await getImage(IMAGE_FORMAT_WSQ, WSQ_COMPRESSION_RATIO);
+      imageData.value = wsqImage;
       setBanner("ready", "Captured (quality " + cap.Quality + ", nfiq " + cap.Nfiq + "). Submitting...");
       form.submit();
     } catch (e) {
